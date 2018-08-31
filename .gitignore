@@ -53,4 +53,15 @@ dkms.conf
 
 #######################
 
+### Ignore all files without extension ###
+# Ignore all
+*
+# Unignore all with extensions
+!*.*
+# Unignore all dirs
+!*/
+# Unignore Makefile 
+!Makefile
+
+### Ignore ~ files ###
 *.*~
