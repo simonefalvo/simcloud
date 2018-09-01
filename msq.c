@@ -22,7 +22,7 @@
 typedef struct {                /* the next-event list    */
     double t;                   /*   next event time      */
     int x;                      /*   event status, 0 or 1 */
-    int job;                    /*   job class type       */
+    int j;                      /*   job class type       */
 } event_list[N + 1];
 
 
@@ -83,16 +83,22 @@ double GetArrival(int *j)
 	return temp;
 }
 
-double GetService(void)
 /* ---------------------------------------------
+double GetService(void)
  * generate the next service time, with rate 1/6
  * ---------------------------------------------
- */
 {
     SelectStream(2);
     return (Uniform(2.0, 10.0));
 }
+ */
 
+double GetService(int j)
+{
+    static int mean[2] = { 7.0, 4.0 };
+    SelectStream(j+2);
+    return Exponential(mean[j]);
+}
 
 int NextEvent(event_list event)
 /* ---------------------------------------
@@ -159,6 +165,8 @@ int main(void)
     t.current = START;
     event[0].t = GetArrival(&j);
     event[0].x = 1;
+    event[0].j = j;
+
     for (s = 1; s <= N; s++) {
         event[s].t = START;     /* this value is arbitrary because */
         event[s].x = 0;         /* all servers are initially idle  */
@@ -174,23 +182,24 @@ int main(void)
 
         if (e == 0) {           /* process an arrival */
             number++;
-            event[0].t = GetArrival(&j);  /* get next arrival */
             if (event[0].t > STOP)
                 event[0].x = 0; /* turn off the event */
             if (number <= N) {
-                double service = GetService();
+                double service = GetService(event[0].j);
                 s = FindOne(event);
                 sum[s].service += service;
                 sum[s].served++;
                 event[s].t = t.current + service;
                 event[s].x = 1;
             }
+            event[0].t = GetArrival(&j);  /* set next arrival t */
+            event[0].j = j;               /* set next arrival j */
         } else {                /* process a departure */
             index++;            /* from server s       */
             number--;
             s = e;
             if (number >= N) {
-                double service = GetService();
+                double service = GetService(event[0].j);
                 sum[s].service += service;
                 sum[s].served++;
                 event[s].t = t.current + service;
