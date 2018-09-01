@@ -15,9 +15,17 @@
 #include <math.h>
 #include "rngs.h"
 
-#define START    0.0            /* initial (open the door)        */
+#define START    0.0            /* initial (open the door) time   */
 #define STOP     20000.0        /* terminal (close the door) time */
-#define N        4              /* number of servers              */
+#define N        20             /* number of servers              */
+#define L1       4.0            /* class 1 arrival rate           */
+#define L2       6.25           /* class 2 arrival rate           */
+#define M1CLET   0.45           /* class 1 cloudlet service rate  */
+#define M2CLET   0.27           /* class 2 cloudlet service rate  */
+#define M1CLOUD  0.25           /* class 1 cloud service rate     */
+#define M2CLOUD  0.22           /* class 2 cloud service rate     */
+#define SETUP    0.8            /* class 2 mean setup time        */
+
 
 typedef struct {                /* the next-event list    */
     double t;                   /*   next event time      */
@@ -36,29 +44,9 @@ double Exponential(double m)
 }
 
 
-double Uniform(double a, double b)
-/* --------------------------------------------
- * generate a Uniform random variate, use a < b 
- * --------------------------------------------
- */
-{
-    return (a + (b - a) * Random());
-}
-
-/*
-double GetArrival(void)
-{
-    static double arrival = START;
-
-    SelectStream(0);
-    arrival += Exponential(2.0);
-    return (arrival);
-}
-*/
-
 double GetArrival(int *j)
 {
-	const double mean[2] = {4.0,6.0};	//tassi di arrivo l1 e l2
+	const double mean[2] = {1/L1, 1/L2};	
 	static double arrival[2] = {START, START};
 	static int init = 1;
 	double temp;
@@ -66,8 +54,8 @@ double GetArrival(int *j)
 	if (init) {
 		SelectStream(0);
 		arrival[0] += Exponential(mean[0]);
-		SelectStream(0);
-		arrival[0] += Exponential(mean[1]);
+		SelectStream(1);
+		arrival[1] += Exponential(mean[1]);
 		init=0;
 	}
 
@@ -83,22 +71,13 @@ double GetArrival(int *j)
 	return temp;
 }
 
-/* ---------------------------------------------
-double GetService(void)
- * generate the next service time, with rate 1/6
- * ---------------------------------------------
-{
-    SelectStream(2);
-    return (Uniform(2.0, 10.0));
-}
- */
-
 double GetService(int j)
 {
-    static int mean[2] = { 7.0, 4.0 };
+	const double mean[2] = {1/M1CLET, 1/M2CLET};	
     SelectStream(j+2);
     return Exponential(mean[j]);
 }
+
 
 int NextEvent(event_list event)
 /* ---------------------------------------
@@ -154,7 +133,9 @@ int main(void)
     long number = 0;            /* number in the node                 */
     int e;                      /* next event index                   */
     int s;                      /* server index                       */
-    long index = 0;             /* used to count processed jobs       */
+    long arrived = 0;           /* arrived jobs counter               */
+    long index = 0;             /* processed jobs counter             */
+    long lost = 0;              /* lost jobs counter                  */
     double area = 0.0;          /* time integrated number in the node */
     struct {                    /* accumulated sums of                */
         double service;         /*   service times                    */
@@ -181,23 +162,31 @@ int main(void)
         t.current = t.next;     /* advance the clock */
 
         if (e == 0) {           /* process an arrival */
-            number++;
+            arrived++;
             if (event[0].t > STOP)
                 event[0].x = 0; /* turn off the event */
-            if (number <= N) {
+
+            if (number < N) {
+                number++; 
                 double service = GetService(event[0].j);
                 s = FindOne(event);
                 sum[s].service += service;
                 sum[s].served++;
                 event[s].t = t.current + service;
                 event[s].x = 1;
+                event[s].j = j; 
             }
+            else lost++;
+
             event[0].t = GetArrival(&j);  /* set next arrival t */
             event[0].j = j;               /* set next arrival j */
+
         } else {                /* process a departure */
-            index++;            /* from server s       */
+            index++;            
             number--;
             s = e;
+            event[s].x = 0;
+            /*
             if (number >= N) {
                 double service = GetService(event[0].j);
                 sum[s].service += service;
@@ -205,10 +194,14 @@ int main(void)
                 event[s].t = t.current + service;
             } else
                 event[s].x = 0;
+            */
         }
     }
 
-    printf("\nfor %ld jobs the service node statistics are:\n\n", index);
+    printf("\nArrived jobs: %ld\n", arrived);
+    printf("Processed jobs: %ld\n", index);
+    printf("Lost jobs: %ld\n", lost);
+    printf("for %ld jobs the service node statistics are:\n\n", index);
     printf("  avg interarrivals .. = %6.2f\n", event[0].t / index);
     printf("  avg wait ........... = %6.2f\n", area / index);
     printf("  avg # in node ...... = %6.2f\n", area / t.current);
