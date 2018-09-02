@@ -12,13 +12,14 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "rngs.h"
 
 #define START    0.0            /* initial (open the door) time   */
-#define STOP     20000.0        /* terminal (close the door) time */
+#define STOP     10.0           /* terminal (close the door) time */
 #define N        20             /* number of servers              */
-#define S        20             /* threshold                      */
+#define S        5             /* threshold                      */
 #define L1       4.0            /* class 1 arrival rate           */
 #define L2       6.25           /* class 2 arrival rate           */
 #define M1CLET   0.45           /* class 1 cloudlet service rate  */
@@ -94,6 +95,17 @@ double GetService(int j)
     return Exponential(mean[j]);
 }
 
+void fprint_servers(FILE* stream, event_list event) 
+{
+    int s;
+    for (s = 1; s <= N; s++) {
+        if (event[s].x == SRV_IDLE) 
+            fprintf(stream, "- -");
+        else
+            fprintf(stream, "-%d-", event[s].j + 1);
+    }
+    fprintf(stream, "\n");
+}
 
 int NextEvent(event_list event)
 /* ---------------------------------------
@@ -156,7 +168,7 @@ int find_busy(event_list event, int jobclass)
  */
 {
     int s = 1;
-    while (event[s].x == SRV_BUSY && event[s].j != jobclass)
+    while (event[s].x == SRV_IDLE || event[s].j != jobclass)
         s++;
     return s;
 }
@@ -171,6 +183,7 @@ void srvjob(event_list event, srvstat_list sum, clock t)
     event[s].x = SRV_BUSY;
     event[s].j = event[0].j; 
 }
+
 
 void rplcjob(event_list event, srvstat_list sum, clock t)
 {
@@ -197,6 +210,7 @@ int main(void)
     long processed = 0;      /* processed jobs counter                */
     long lost = 0;           /* lost jobs counter                     */
     double area = 0.0;       /* time integrated number in the node    */
+    double t_last = STOP;    /* last arrival time                     */
 
     PlantSeeds(0);
     t.current = START;
@@ -212,17 +226,17 @@ int main(void)
     }
 
     while ((event[0].x != 0) || (n1 + n2 != 0)) {
-        e = NextEvent(event);   /* next event index */
-        t.next = event[e].t;    /* next event time  */
-        area += (t.next - t.current) * (n1 + n2);  /* update integral  */
-        t.current = t.next;     /* advance the clock */
+        e = NextEvent(event);                     /* next event index */
+        t.next = event[e].t;                      /* next event time  */
+        area += (t.next - t.current) * (n1 + n2); /* update integral  */
+        t.current = t.next;                       /* advance the clock */
+
 
         if (e == 0) {           /* process an arrival */
             arrived++;
-            if (event[0].t > STOP)
-                event[0].x = 0; /* turn off the event */
 
             if (event[0].j == J_CLASS1) { /* process a class 1 arrival */
+                fprintf(stderr, "class 1 arrival\n");
                 if (n1 == N) 
                     lost++;
                 else if (n1 + n2 < S) { // accept job
@@ -241,7 +255,8 @@ int main(void)
                         }
             }
             else {                 /* process a class 2 arrival */
-                if (n1 + n2 > S)
+                fprintf(stderr, "class 2 arrival\n");
+                if (n1 + n2 >= S)
                     lost++;
                 else {
                     srvjob(event, sum, t);
@@ -252,7 +267,15 @@ int main(void)
             event[0].t = GetArrival(&jobclass);  /* set next arrival t */
             event[0].j = jobclass;               /* set next arrival j */
 
+            if (event[0].t > STOP)  
+                event[0].x = 0; /* turn off the event */
+            else t_last = event[0].t;
+
+            fprint_servers(stderr, event);
+            fprintf(stderr, "pending jobs: %ld\n\n", n1 + n2);
+
         } else {                /* process a departure */
+            fprintf(stderr, "departure\n");
             s = e;
             event[s].x = SRV_IDLE;
             if (event[s].j == J_CLASS1)
@@ -260,25 +283,25 @@ int main(void)
             else 
                 n2--;
             processed++;            
+
+            fprint_servers(stderr, event);
+            fprintf(stderr, "pending jobs: %ld\n\n", n1 + n2);
         }
     }
 
-    printf("\nArrived jobs: %ld\n", arrived);
-    printf("Processed jobs: %ld\n", processed);
-    printf("Lost jobs: %ld\n", lost);
-    printf("Lost + processed: %ld\n", lost + processed);
+    printf("\nArived jobs statistics are:\n\n");
+    printf("  Arrived jobs ...... = %ld\n", arrived);
+    printf("  Processed jobs .... = %ld\n", processed);
+    printf("  Lost jobs ......... = %ld\n", lost);
+    printf("  Lost + processed .. = %ld\n", lost + processed);
+    printf("  %% Lost ....... = %6.2f\n", (double) lost / arrived);
+    printf("  %% Processed .. = %6.2f\n", (double) processed / arrived);
 
-
-    printf("for %ld jobs the service node statistics are:\n\n", processed);
-    printf("  avg interarrivals .. = %6.2f\n", event[0].t / arrived);
-    printf("  avg wait ........... = %6.2f\n", area / processed);
+    printf("\nservice node statistics are:\n\n");
+    printf("  avg interarrivals .. = %6.2f\n", t_last / arrived);
+    printf("  avg wait ........... = %6.2f\n", area / processed); // approx
     printf("  avg # in node ...... = %6.2f\n", area / t.current);
 
-    for (s = 1; s <= N; s++)    /* adjust area to calculate */
-        area -= sum[s].service; /* averages for the queue   */
-
-    printf("  avg delay .......... = %6.2f\n", area / processed);
-    printf("  avg # in queue ..... = %6.2f\n", area / t.current);
     printf("\nthe server statistics are:\n\n");
     printf("    server     utilization     avg service        share\n");
     for (s = 1; s <= N; s++)
@@ -287,5 +310,5 @@ int main(void)
                (double) sum[s].served / processed);
     printf("\n");
 
-    return (0);
+    return EXIT_SUCCESS;
 }
