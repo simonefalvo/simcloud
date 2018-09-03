@@ -1,11 +1,11 @@
 CC := gcc
 CFLAGS := -Wall -Wextra -O3 -fno-stack-protector
 
-PROGS := msq
+PROGS := clet
 
 all: $(PROGS)
 
-msq: msq.c rngs.c rngs.h -lm
+clet: clet.c rvgs.h rvgs.c rngs.c rngs.h basic.h utils.h utils.c -lm
 
 .PHONY: all clean
 clean:
