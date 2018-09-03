@@ -1,6 +1,7 @@
 #ifndef _BASIC_H
 #define _BASIC_H
 
+#include <stdlib.h>
 
 #define START    0.0            /* initial (open the door) time   */
 #define STOP     10.0           /* terminal (close the door) time */
@@ -19,6 +20,12 @@
 #define CLOUD    2              /* cloud index                    */
 #define SRV_IDLE 0              /* idle server index              */
 #define SRV_BUSY 1              /* busy server index              */
+#define E_ARRIVE 0
+#define E_DEPART 1
+
+
+#define handle_error(msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 
 typedef struct {                /* simulation clock                  */
@@ -37,5 +44,10 @@ typedef struct {                /* accumulated sums of    */
     long served;                /*   number served        */
 } srvstat_list[N + 1];
 
+struct event {
+    double time;
+    int type;
+    int job;
+};
 
 #endif /* _BASIC_H */

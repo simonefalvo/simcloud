@@ -69,28 +69,6 @@ int NextEvent(event_list event)
 
 
 
-int FindOne(event_list event)
-/* -----------------------------------------------------
- * return the index of the available server idle longest
- * -----------------------------------------------------
- */
-{
-    int s;
-    int i = 1;
-
-    while (event[i].x == 1)     /* find the index of the first available */
-        i++;                    /* (idle) server                         */
-    s = i;
-    while (i < N) {             /* now, check the others to find which   */
-        i++;                    /* has been idle longest                 */
-        if ((event[i].x == 0) && (event[i].t < event[s].t))
-            s = i;
-    }
-    return s;
-}
-
-
-
 int find_idle(event_list event)
 /* ---------------------------------------------------
  * return the index of the first available idle server 
