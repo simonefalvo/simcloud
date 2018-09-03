@@ -16,7 +16,7 @@
 #define J_CLASS1 0              /* job class type 1               */
 #define J_CLASS2 1              /* job class type 2               */
 #define CLET     0              /* cloudlet index                 */
-#define CLOUD    1              /* cloud index                    */
+#define CLOUD    2              /* cloud index                    */
 #define SRV_IDLE 0              /* idle server index              */
 #define SRV_BUSY 1              /* busy server index              */
 
