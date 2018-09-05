@@ -4,9 +4,9 @@
 #include <stdlib.h>
 
 #define START    0.0            /* initial (open the door) time   */
-#define STOP     10.0           /* terminal (close the door) time */
+#define STOP     20.0           /* terminal (close the door) time */
 #define N        20             /* number of servers              */
-#define S        5             /* threshold                      */
+#define S        20             /* threshold                      */
 #define L1       4.0            /* class 1 arrival rate           */
 #define L2       6.25           /* class 2 arrival rate           */
 #define M1CLET   0.45           /* class 1 cloudlet service rate  */
@@ -20,7 +20,7 @@
 #define CLOUD    2              /* cloud index                    */
 #define SRV_IDLE 0              /* idle server index              */
 #define SRV_BUSY 1              /* busy server index              */
-#define E_ARRIVE 0
+#define E_ARRIVL 0
 #define E_DEPART 1
 
 

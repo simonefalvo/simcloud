@@ -6,17 +6,27 @@
 void fprint_event(FILE * stream, void *p)
 {
     struct event *e = p;
-    char type = e->type == E_ARRIVE ? 'a' : 'd';
+    char type = e->type == E_ARRIVL ? 'a' : 'd';
 
     fprintf(stream, "|%f-", e->time);
     fprintf(stream, "%c-", type);
     fprintf(stream, "%d|", e->job + 1);
 }
+
 void fprint_server(FILE * stream, void *p)
 {
     struct event *e = p;
     if (e->type == E_DEPART)
         fprintf(stream, "-%d-", e->job + 1);
+}
+
+
+struct event *alloc_event()
+{
+    struct event *e = malloc(sizeof(struct event));
+    if (!e)
+        handle_error("allocating an event struct");
+    return e;
 }
 
 
@@ -87,13 +97,8 @@ struct event *dequeue_event(struct queue_t *queue)
 
 
 
-void enqueue_event(struct event e, struct queue_t *queue)
+void enqueue_event(struct event *e, struct queue_t *queue)
 {
-    struct event *p = malloc(sizeof(struct event));
-
-    if (p == NULL)
-        handle_error("malloc of the new event");
-    *p = e;
-    if (prio_enqueue(p, queue, time_cmp) == -1)
+    if (prio_enqueue(e, queue, time_cmp) == -1)
         handle_error("prio_enqueue()");
 }
