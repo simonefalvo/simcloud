@@ -7,16 +7,25 @@ void fprint_event(FILE * stream, void *p)
 {
     struct event *e = p;
     char type = e->type == E_ARRIVL ? 'a' : 'd';
+    char *node = e->node == CLET? "clet" : "cloud"; 
 
     fprintf(stream, "|%f-", e->time);
+    fprintf(stream, "%s-", node);
     fprintf(stream, "%c-", type);
     fprintf(stream, "%d|", e->job + 1);
 }
 
-void fprint_server(FILE * stream, void *p)
+void fprint_clet(FILE * stream, void *p)
 {
     struct event *e = p;
-    if (e->type == E_DEPART)
+    if (e->type == E_DEPART && e->node == CLET)
+        fprintf(stream, "-%d-", e->job + 1);
+}
+
+void fprint_cloud(FILE * stream, void *p)
+{
+    struct event *e = p;
+    if (e->type == E_DEPART && e->node == CLOUD)
         fprintf(stream, "-%d-", e->job + 1);
 }
 
@@ -58,13 +67,29 @@ int time_cmp(void *xp, void *yp)
 }
 
 
-
-int job_cmp(void *xp, void *yp)
+/*
+ * Function:	event_cmp	
+ * -------------------------------------
+ * Compare two events.
+ * Two events are equals iff type, node and jobclass are.
+ *
+ * Parameters:
+ * 		xp	the address of the first packet
+ * 		yp	the address of the second packet
+ *
+ * 	Returns:
+ * 		0	xp->job == yp->job && xp->type == yp->type &&
+ *          xp->node == yp->node
+ * 	    !0	otherwise
+ */
+int event_cmp(void *xp, void *yp)
 {
     struct event *x = xp;
     struct event *y = yp;
 
-    return x->job != y->job;
+    return (x->job != y->job)
+        || (x->type != y->type) 
+        || (x->node != y->node);
 }
 
 

@@ -22,6 +22,7 @@
 #define SRV_BUSY 1              /* busy server index              */
 #define E_ARRIVL 0
 #define E_DEPART 1
+#define E_SETUP  2
 
 
 #define handle_error(msg) \
@@ -46,8 +47,10 @@ typedef struct {                /* accumulated sums of    */
 
 struct event {
     double time;
+    double s_start;
     int type;
     int job;
+    int node;
 };
 
 #endif /* _BASIC_H */

@@ -49,15 +49,23 @@ double GetService(int j, int n)
 
 
 
-
-void srvjob(int jobtype, struct queue_t *queue, clock t)
+double GetSetup()
 {
-    double service = GetService(jobtype, CLET);
+    return Exponential(1/SETUP);
+}
+
+
+
+void srvjob(int class, int node, struct queue_t *queue, clock t)
+{
+    double service = GetService(class, node);
     struct event *e = alloc_event();
 
-    e->job = jobtype;
+    e->job = class;
     e->time = t.current + service;
+    e->s_start = t.current;
     e->type = E_DEPART;
+    e->node = node;
 
     enqueue_event(e, queue);
 }
@@ -66,18 +74,17 @@ void srvjob(int jobtype, struct queue_t *queue, clock t)
 
 void rplcjob(struct queue_t *queue, clock t)
 {
-    double service = GetService(J_CLASS1, CLET);
+    double setup = GetSetup();
     struct event *e = alloc_event();
     
     e->job = J_CLASS2;
-    if (remove_node(e, queue, job_cmp) == -1)
-        handle_error("remove_node()");
-    // TODO: mettere il job di classe 2 in servizio sul cloud
-
-    e->job = J_CLASS1;
-    e->time = t.current + service;
     e->type = E_DEPART;
+    e->node = CLET;
+    if (remove_node(e, queue, event_cmp) == -1)
+        handle_error("remove_node()");
 
+    e->time = t.current + setup;
+    e->type = E_SETUP;
     enqueue_event(e, queue);
 }
 
@@ -92,14 +99,40 @@ int main(void)
     clock t;
 
     int jobclass;
-    long n1 = 0;             /* number of class 1 job in the cloudlet */
-    long n2 = 0;             /* number of class 2 job in the cloudlet */
-    long ncloud = 0;         /* number of jobs into the cloud         */
-    long arrived = 0;        /* arrived jobs counter                  */
-    long processed = 0;      /* processed jobs counter                */
-    long lost = 0;           /* lost jobs counter                     */
-    double area = 0.0;       /* time integrated number in the node    */
-    double t_last = STOP;    /* last arrival time                     */
+
+    long n1_clet = 0;        /* number of class 1 job in the cloudlet */
+    long n2_clet = 0;        /* number of class 2 job in the cloudlet */
+    long n1_cloud = 0;        /* number of class 1 job in the cloudlet */
+    long n2_cloud = 0;        /* number of class 2 job in the cloudlet */
+    long n_int = 0;          /* number interrupted jobs               */
+
+    long arrived;
+    long a1_clet = 0;        /* arrived jobs counter                  */
+    long a2_clet = 0;        /* arrived jobs counter                  */
+    long a1_cloud = 0;       /* arrived jobs counter                  */
+    long a2_cloud = 0;       /* arrived jobs counter                  */
+
+    long processed;
+    long c1_clet = 0;
+    long c2_clet = 0;
+    long c1_cloud = 0;
+    long c2_cloud = 0;
+
+    double s1_clet = 0.0;
+    double s2_clet = 0.0;
+    double s1_cloud = 0.0;
+    double s2_cloud = 0.0;
+    double si_clet = 0.0;
+    double si_cloud = 0.0;
+    double s_setup = 0.0;
+
+    double area;            /* time integrated number in the node    */
+    double area1_clet = 0.0;
+    double area2_clet = 0.0;
+    double area1_cloud = 0.0;
+    double area2_cloud = 0.0;
+
+    double t_last = STOP;    /* last arrival time */
 
     struct event *e;
     struct queue_t queue;
@@ -121,76 +154,125 @@ int main(void)
     while (queue.head != NULL) {
 
         e = dequeue_event(&queue); 
-        t.next = e->time;                         /* next event time  */
-        area += (t.next - t.current) * (n1 + n2); /* update integral  */
-        t.current = t.next;                       /* advance the clock */
+        t.next = e->time;                               /* next event time */
+
+        area1_clet += (t.next - t.current) * n1_clet;   /* update integral  */
+        area2_clet += (t.next - t.current) * n2_clet;   /* update integral  */
+        area1_cloud += (t.next - t.current) * n1_cloud; /* update integral  */
+        area2_cloud += (t.next - t.current) * n2_cloud; /* update integral  */
+
+        t.current = t.next;                             /* advance the clock */
 
 
-        if (e->type == E_ARRIVL) {           /* process an arrival */
-            arrived++;
+        switch (e->type) {
+
+        case E_ARRIVL:            /* process an arrival */
 
             if (e->job == J_CLASS1) { /* process a class 1 arrival */
                 fprintf(stderr, "class 1 arrival\n");
-                if (n1 == N) 
-                    lost++;
-                else if (n1 + n2 < S) { // accept job
-                        srvjob(J_CLASS1, &queue, t);
-                        n1++;
+                if (n1_clet == N) {
+                    srvjob(J_CLASS1, CLOUD, &queue, t);
+                    a1_cloud++;
+                    n1_cloud++;
+                }
+                else if (n1_clet + n2_clet < S) { // accept job
+                        srvjob(J_CLASS1, CLET, &queue, t);
+                        a1_clet++;
+                        n1_clet++;
                     }
-                    else if (n2 > 0) { // replace a class 2 job 
+                    else if (n2_clet > 0) { // replace a class 2 job 
                             rplcjob(&queue, t);
-                            n1++;
-                            n2--;
-                            lost++;
+                            srvjob(J_CLASS1, CLET, &queue, t);
+                            a1_clet++;
+                            n1_clet++;
+                            n2_clet--;
+                            n_int++;
                         }
                         else { // accept job
-                            srvjob(J_CLASS1, &queue, t);
-                            n1++;
+                            srvjob(J_CLASS1, CLET, &queue, t);
+                            a1_clet++;
+                            n1_clet++;
                         }
             }
             else {                 /* process a class 2 arrival */
                 fprintf(stderr, "class 2 arrival\n");
-                if (n1 + n2 >= S)
-                    lost++;
+                if (n1_clet + n2_clet >= S) {
+                    srvjob(J_CLASS2, CLOUD, &queue, t);
+                    a2_cloud++;
+                    n2_cloud++;
+                }
                 else {
-                    srvjob(J_CLASS2, &queue, t);
-                    n2++;
+                    srvjob(J_CLASS2, CLET, &queue, t);
+                    a2_clet++;
+                    n2_clet++;
                 }
             }
-
             e->time = GetArrival(&jobclass); /* set next arrival t */
             e->job = jobclass;               /* set next arrival j */
-
             if (e->time <= STOP) {
                 enqueue_event(e, &queue);
                 t_last = e->time;
             }
+            fprint_queue(stderr, &queue, fprint_clet);
+            fprintf(stderr, "cloudlet jobs: n1 = %ld, n2 = %ld\n\n", n1_clet, n2_clet);
+            fprint_queue(stderr, &queue, fprint_cloud);
+            fprintf(stderr, "cloud jobs: n1 = %ld, n2 = %ld\n\n", n1_cloud, n2_cloud);
+            break;
 
-            //fprint_servers(stderr, &queue);
-            fprint_queue(stderr, &queue, fprint_server);
-            fprintf(stderr, "pending jobs: n1 = %ld, n2 = %ld\n\n", n1, n2);
+       case E_SETUP:
+            fprintf(stderr, "setup\n");
+            srvjob(J_CLASS2, CLOUD, &queue, t);
+            n2_cloud++;
+            fprint_queue(stderr, &queue, fprint_clet);
+            fprintf(stderr, "cloudlet jobs: n1 = %ld, n2 = %ld\n\n", n1_clet, n2_clet);
+            fprint_queue(stderr, &queue, fprint_cloud);
+            fprintf(stderr, "cloud jobs: n1 = %ld, n2 = %ld\n\n", n1_cloud, n2_cloud);
+            break;
 
-        } else {                /* process a departure */
-            fprintf(stderr, "departure\n");
-            if (e->job == J_CLASS1)
-                n1--;
-            else 
-                n2--;
-            processed++;            
+        case E_DEPART:                /* process a departure */
+            if (e->node == CLET) {
+                if (e->job == J_CLASS1) {
+                    fprintf(stderr, "class 1 departure from cloudlet\n");
+                    n1_clet--;
+                    c1_clet++;
+                }
+                else {
+                    fprintf(stderr, "class 2 departure from cloudlet\n");
+                    n2_clet--;
+                    c2_clet++;
+                }
+            }
+            else {
+                if (e->job == J_CLASS1) {
+                    fprintf(stderr, "class 1 departure from cloud\n");
+                    n1_cloud--;
+                    c1_cloud++;
+                }
+                else {
+                    fprintf(stderr, "class 2 departure from cloud\n");
+                    n2_cloud--;
+                    c2_cloud++;
+                }
+            }
             free(e);
-
-            fprint_queue(stderr, &queue, fprint_server);
-            fprintf(stderr, "pending jobs: n1 = %ld, n2 = %ld\n\n", n1, n2);
+            fprint_queue(stderr, &queue, fprint_clet);
+            fprintf(stderr, "cloudlet jobs: n1 = %ld, n2 = %ld\n\n", n1_clet, n2_clet);
+            fprint_queue(stderr, &queue, fprint_cloud);
+            fprintf(stderr, "cloud jobs: n1 = %ld, n2 = %ld\n\n", n1_cloud, n2_cloud);
+            break;
+        
+        default:
+            handle_error("unknown event type");
         }
     }
+
+    arrived = a1_clet + a2_clet + a1_cloud + a2_cloud;
+    processed = c1_clet + c2_clet + c1_cloud + c2_cloud;
+    area = area1_clet + area2_clet + area1_cloud + area2_cloud;
 
     printf("\nArived jobs statistics are:\n\n");
     printf("  Arrived jobs ...... = %ld\n", arrived);
     printf("  Processed jobs .... = %ld\n", processed);
-    printf("  Lost jobs ......... = %ld\n", lost);
-    printf("  Lost + processed .. = %ld\n", lost + processed);
-    printf("  %% Lost ....... = %6.2f\n", (double) lost / arrived);
-    printf("  %% Processed .. = %6.2f\n", (double) processed / arrived);
 
     printf("\nservice node statistics are:\n\n");
     printf("  avg interarrivals .. = %6.2f\n", t_last / arrived);
