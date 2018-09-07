@@ -36,7 +36,7 @@ void enqueue_node(struct node_t *new, struct queue_t *q)
 
 
 
-int dequeue_node(struct queue_t *q, struct node_t **pdel)
+int dequeue_node(struct queue_t *q, struct node_t **pdeq)
 {
     struct node_t *d;
 
@@ -52,7 +52,7 @@ int dequeue_node(struct queue_t *q, struct node_t **pdel)
     q->head = d->next;
     d->next = NULL;
 
-    *pdel = d;
+    *pdeq = d;
 
     return 0;
 }
@@ -176,19 +176,21 @@ struct node_t **find_ppos(struct node_t *pnode, struct node_t **pnext,
 /*
  * Function:	remove_node
  * -------------------------------------------------------------
- * Remove the node matching the specified value.
+ * Remove the node matching the specified value and put the 
+ * reference in the node variable.
  * The match is checked by the compare function.
  *
  * Parameters:
  * 		pval			value of the node to remove
  * 		q				address of the queue
+ * 		node            the reference to the address of the removed node
  * 		compare_funct	function that compares the values
  *
  * 	Returns:
  * 		0	on success
  * 		-1	if there is not a node with the value	
  */
-int remove_node(void *pval, struct queue_t *q,
+int remove_node(void *pval, struct queue_t *q, struct node_t **node,
                 int (compare_funct) (void *, void *))
 {
     struct node_t **phead = &q->head;
@@ -204,7 +206,8 @@ int remove_node(void *pval, struct queue_t *q,
     if (ppos == NULL)
         return -1;
 
-    free(remove_after_node(ppos));
+    free(pnew);
+    *node = (remove_after_node(ppos));
 
     return 0;
 }
