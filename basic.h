@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #define START    0.0            /* initial (open the door) time   */
-#define STOP     20000.0      /* terminal (close the door) time */
+#define STOP     2000000.0      /* terminal (close the door) time */
 #define N        20             /* number of servers              */
 #define S        20             /* threshold                      */
 #define L1       4.0            /* class 1 arrival rate           */
