@@ -51,6 +51,7 @@ struct event {
     int type;
     int job;
     int node;
+    int batch;
 };
 
 #endif /* _BASIC_H */

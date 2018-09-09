@@ -7,8 +7,7 @@
 #include "utils.h"
 #include "queue.h"
 #include "eventq.h"
-
-
+#include "rvms.h"
 
 
 double GetArrival(int *j)
@@ -57,17 +56,18 @@ double GetSetup()
 
 
 
-double srvjob(int class, int node, struct queue_t *queue, clock t)
+double srvjob(struct event *e, int node, struct queue_t *queue, clock t)
 {
-    double service = GetService(class, node);
-    struct event *e = alloc_event();
+    double service = GetService(e->job, e->node);
+    struct event *new = alloc_event();
 
-    e->job = class;
-    e->time = t.current + service;
-    e->s_start = t.current;
-    e->type = E_DEPART;
-    e->node = node;
-    enqueue_event(e, queue);
+	*new=*e;
+    new->time = t.current + service;
+    new->s_start = t.current;
+    new->type = E_DEPART;
+    new->node = node;
+    new->batch = e->batch;
+    enqueue_event(new, queue);
 
     return service;
 }
@@ -87,18 +87,57 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int)
     removed = remove_event(queue, e);
     service = removed->time - removed->s_start;
     *s_int += t.current - removed->s_start;
-    free(removed);
 
+	e->s_start = removed->s_start;
+	e->batch = removed->batch;
     e->time = t.current + setup;
+    e->node = CLOUD;
     e->type = E_SETUP;
     enqueue_event(e, queue);
+    free(removed);
 
     return service;
 }
 
 
+double calcola_intDiConf(double *batch_mean, long k, long b, long n, double alpha){
+	double sample_mean=0, dev_std=0;
+	int i;
+	for(i=0; i<k; i++){
+    	batch_mean[i] = batch_mean[i] / b;
+    	sample_mean += batch_mean[i];
+    	//printf("bm = %f\n", batch_mean[i]);
+    	//fprintf(stderr, "%f\n", batch_mean[i]);
+    }
+    sample_mean = sample_mean/k;	//media campionaria ottenuta dalle medie camp dei vari batch
+    printf("media campionaria = %f\n", sample_mean);
+    
+    for(i=0; i<k; i++){
+		dev_std += pow(batch_mean[i] - sample_mean, 2);
+	}
+	dev_std = sqrt(dev_std/k);
+	printf("dev_std = %f\n", dev_std);
 
+	//valore critico t*
+	double t = idfStudent(n-1, 1-alpha/2);
+	printf("t = idfStudent è %6.2f\n", t);
+	t = idfNormal(0.0, 1.0, 1-alpha/2);
+	printf("t = idfNormal è %6.2f\n", t);
 
+/*
+	//intervallo
+	double int1, int2;
+	int1 = sample_mean - (t*dev_std)/sqrt(k-1);
+	int2 = sample_mean + (t*dev_std)/sqrt(k-1);
+	printf("intervallo : %f , %f\n", int1, int2);
+*/
+
+	//lunghezza metà intervallo
+	double w = (t*dev_std)/sqrt(n-1);
+	printf("w = %6.2f\n", w);  
+	
+	return w;  
+}
 
 
 
@@ -129,11 +168,27 @@ int main(void)
     double area_tot = 0.0;                   /* time integrated # in the system */
     double area[4] = {0.0, 0.0, 0.0, 0.0};
     double area_setup = 0.0;
+	double t_stop = INFINITY;
 
     int i;      // array index
     char *node;
-
-
+	
+	//BATCH
+	//k>=32, k=64 raccomandato. b almeno 2 volte l'aurocorrelation cut-off lag
+	double alpha=0.05;
+	//TODO: aggiungere controllo su ultimo batch. n da tastiera, e non ricavato da b*k
+	long k=64;	//numero dei batch
+	long b=200;	//lunghezza dei batch
+	long n_job=b*k;	//numero di job
+	long cont=0;	//contatore per numero job in arrivo
+	long batch=0;	//batch attualmente assegnato
+	double batch_mean[k];	//array contenente le medie dei vari batch. Viene aggiornato al completamento dei job
+	
+	printf("numero job = %ld,  k= %ld,  b=%ld\n", n_job, k, b);
+	
+	for(i=0; i<k; i++)
+		batch_mean[i]=0.0;
+	
     struct event *e;
     struct queue_t queue;
 
@@ -167,21 +222,31 @@ int main(void)
 
         case E_ARRIVL:                                  /* process an arrival */
 
+		//BATCH
+			arrived++;
+            cont++;
+            if(cont<b)
+            	e->batch = batch;
+            else{
+            	cont=0;
+            	batch++;
+            }
+
             if (e->job == J_CLASS1) {            /* process a class 1 arrival */
                 //fprintf(stderr, "class 1 arrival\n");
                 if (n[J_CLASS1 + CLET] == N) {
-                    s[J_CLASS1 + CLOUD] += srvjob(J_CLASS1, CLOUD, &queue, t);
+                    s[J_CLASS1 + CLOUD] += srvjob(e, CLET, &queue, t);
                     a[J_CLASS1 + CLOUD]++;
                     n[J_CLASS1 + CLOUD]++;
                 }
                 else if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] < S) { // accept job
-                        s[J_CLASS1 + CLET] += srvjob(J_CLASS1, CLET, &queue, t);
+                        s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
                         a[J_CLASS1 + CLET]++;
                         n[J_CLASS1 + CLET]++;
                     }
                     else if (n[J_CLASS2 + CLET] > 0) { // replace a class 2 job 
                             s[J_CLASS2 + CLET] -= rplcjob(&queue, t, &si_clet);
-                            s[J_CLASS1 + CLET] += srvjob(J_CLASS1, CLET, &queue, t);
+                            s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
                             a[J_CLASS1 + CLET]++;
                             n[J_CLASS1 + CLET]++;
                             n[J_CLASS2 + CLET]--;
@@ -189,7 +254,7 @@ int main(void)
                             n_int++;
                         }
                         else { // accept job
-                            s[J_CLASS1 + CLET] += srvjob(J_CLASS1, CLET, &queue, t);
+                            s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
                             a[J_CLASS1 + CLET]++;
                             n[J_CLASS1 + CLET]++;
                         }
@@ -197,21 +262,24 @@ int main(void)
             else {                 /* process a class 2 arrival */
                 //fprintf(stderr, "class 2 arrival\n");
                 if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] >= S) {
-                    s[J_CLASS2 + CLOUD] += srvjob(J_CLASS2, CLOUD, &queue, t);
+                    s[J_CLASS2 + CLOUD] += srvjob(e, CLOUD, &queue, t);
                     a[J_CLASS2 + CLOUD]++;
                     n[J_CLASS2 + CLOUD]++;
                 }
                 else {
-                    s[J_CLASS2 + CLET] += srvjob(J_CLASS2, CLET, &queue, t);
+                    s[J_CLASS2 + CLET] += srvjob(e, CLET, &queue, t);
                     a[J_CLASS2 + CLET]++;
                     n[J_CLASS2 + CLET]++;
                 }
             }
             e->time = GetArrival(&jobclass); /* set next arrival t */
             e->job = jobclass;               /* set next arrival j */
-            if (e->time <= STOP) 
-                enqueue_event(e, &queue);
             
+            //if (e->time <= STOP) 
+            if(arrived<n_job)
+                enqueue_event(e, &queue);
+            else
+            	t_stop = t.current; 
             /*
             fprint_queue(stderr, &queue, fprint_clet);
             fprintf(stderr, "cloudlet jobs: n1 = %ld, n2 = %ld\n\n", 
@@ -225,7 +293,7 @@ int main(void)
 
        case E_SETUP:
             //fprintf(stderr, "setup\n");
-            si_cloud += srvjob(J_CLASS2, CLOUD, &queue, t);
+            si_cloud += srvjob(e, CLOUD, &queue, t);
             n[J_CLASS2 + CLOUD]++;
             n_setup--;
 
@@ -247,9 +315,12 @@ int main(void)
 
             n[e->job + e->node]--;
             c[e->job + e->node]++;
-            if (t.current <= STOP)
+            if (t.current <= t_stop)
                 c_stop[e->job + e->node]++;
 
+			//BATCH
+			batch_mean[e->batch] += e->time - e->s_start;
+			//printf("batch index = %d, service time = %f\n", e->batch, e->time - e->s_start);
             free(e);
 
             /*
@@ -267,12 +338,22 @@ int main(void)
             handle_error("unknown event type");
         }
     }
+    
+    //BATCH MEAN
+    //calcolo le medie campionarie
+    /*
+    for(i=0; i<k; i++){
+    	batch_mean[i] = batch_mean[i]/b;
+    	fprintf(stderr, "%f\n", batch_mean[i]);
+    }
+    */
+    double w = calcola_intDiConf(batch_mean, k, b, n_job, alpha);
 
 
     /****************** print results *****************/
 
     for (i = 0; i < 4; i++) {
-        arrived += a[i];
+        //arrived += a[i];
         completions += c[i];
         compl_stop += c_stop[i];
         area_tot += area[i];
@@ -282,14 +363,14 @@ int main(void)
     service += (si_clet + si_cloud + s_setup);
     
 
-    printf("\nSimulation run with N=%d, S=%d, START=%f, STOP=%f\n\n", 
-            N, S, START, STOP);
+    printf("\nSimulation run with N=%d, S=%d, START=%f, t_stop=%f\n\n", 
+            N, S, START, t_stop);
 
     printf("\nSystem statistics\n\n");
     printf("  Arrived jobs ....................... = %ld\n", arrived);
     printf("  Processed jobs ..................... = %ld\n", completions);
-    printf("  Arrival rate ....................... = %f\n", (double) arrived / STOP);
-    printf("  Departure rate ..................... = %f\n\n", (double) compl_stop / STOP);
+    printf("  Arrival rate ....................... = %f\n", (double) arrived / t_stop);
+    printf("  Departure rate ..................... = %f\n\n", (double) compl_stop / t_stop);
 
     printf("  System mean response time .......... = %f\n", service / arrived);
     printf("  System mean population ............. = %f\n", area_tot / t.current);
@@ -297,18 +378,18 @@ int main(void)
             area_tot * arrived / service / t.current);
 
     printf("  Class 1 system throughput .......... = %f\n", (double) 
-        (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS1 + CLOUD]) / STOP);
+        (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS1 + CLOUD]) / t_stop);
     printf("  Class 2 system throughput .......... = %f\n", (double) 
-        (c_stop[J_CLASS2 + CLET] + c_stop[J_CLASS2 + CLOUD]) / STOP);
+        (c_stop[J_CLASS2 + CLET] + c_stop[J_CLASS2 + CLOUD]) / t_stop);
     printf("  Global system throughput ........... = %f\n\n", (double) 
-        compl_stop / STOP);
+        compl_stop / t_stop);
         
     printf("  Class 1 cloudlet throughput ........ = %f\n", (double) 
-        c_stop[J_CLASS1 + CLET] / STOP);
+        c_stop[J_CLASS1 + CLET] / t_stop);
     printf("  Class 2 cloudlet throughput ........ = %f\n", (double) 
-        c_stop[J_CLASS2 + CLET] / STOP);
+        c_stop[J_CLASS2 + CLET] / t_stop);
     printf("  Global cloudlet throughput ......... = %f\n\n", (double) 
-        (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS2 + CLET]) / STOP);
+        (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS2 + CLET]) / t_stop);
     
     printf("  Class 2 arrivals on the cloudlet ... = %ld\n", a[J_CLASS2 + CLET]);
     printf("  Interrupted tasks .................. = %ld\n", n_int);
@@ -360,6 +441,5 @@ int main(void)
     printf("  Class 2 cloud completions ...... = %ld\n", c[J_CLASS2 + CLOUD]);
 
     
-
     return EXIT_SUCCESS;
 }
