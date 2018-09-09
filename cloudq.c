@@ -9,7 +9,6 @@
 #include "eventq.h"
 #include "rvms.h"
 
-
 double GetArrival(int *j)
 {
 	const double mean[2] = {1/L1, 1/L2};	
@@ -100,8 +99,10 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int)
 }
 
 
-double calcola_intDiConf(double *batch_mean, long k, long b, long n, double alpha){
+struct conf_int calcola_intDiConf(double *batch_mean, long k, long b, long n, double alpha){
 	double sample_mean=0, dev_std=0;
+	struct conf_int c_int;
+	
 	int i;
 	for(i=0; i<k; i++){
     	batch_mean[i] = batch_mean[i] / b;
@@ -110,33 +111,42 @@ double calcola_intDiConf(double *batch_mean, long k, long b, long n, double alph
     	//fprintf(stderr, "%f\n", batch_mean[i]);
     }
     sample_mean = sample_mean/k;	//media campionaria ottenuta dalle medie camp dei vari batch
-    printf("media campionaria = %f\n", sample_mean);
     
     for(i=0; i<k; i++){
 		dev_std += pow(batch_mean[i] - sample_mean, 2);
 	}
 	dev_std = sqrt(dev_std/k);
-	printf("dev_std = %f\n", dev_std);
 
-	//valore critico t*
-	double t = idfStudent(n-1, 1-alpha/2);
-	printf("t = idfStudent è %6.2f\n", t);
+	//VALORE CRITICO t*
+	//TODO: controllare valore parametro n,k
+	double t = idfStudent(k-1, 1-alpha/2);
+	//printf("t = idfStudent è %6.2f\n", t);
+	/*
 	t = idfNormal(0.0, 1.0, 1-alpha/2);
 	printf("t = idfNormal è %6.2f\n", t);
+	*/
 
-/*
-	//intervallo
+	/*
+	//INTERVALLO
 	double int1, int2;
 	int1 = sample_mean - (t*dev_std)/sqrt(k-1);
 	int2 = sample_mean + (t*dev_std)/sqrt(k-1);
 	printf("intervallo : %f , %f\n", int1, int2);
-*/
+	*/
 
-	//lunghezza metà intervallo
-	double w = (t*dev_std)/sqrt(n-1);
-	printf("w = %6.2f\n", w);  
+	//LUNGHEZZA DELL'INTERVALLO
+	double w = (t*dev_std)/sqrt(k-1);
+	/*
+	printf("media campionaria = %f\n", sample_mean);
+	printf("dev_std = %f\n", dev_std);
+	printf("t*dev_std = %f\n", t*dev_std);
+	printf("sqrt(n-1) = %f\n", sqrt(k-1));
+	printf("w = %6.2f\n", w); 
+	*/ 
 	
-	return w;  
+	c_int.w = w;
+	c_int.sample_mean = sample_mean;
+	return c_int;  
 }
 
 
@@ -178,7 +188,7 @@ int main(void)
 	double alpha=0.05;
 	//TODO: aggiungere controllo su ultimo batch. n da tastiera, e non ricavato da b*k
 	long k=64;	//numero dei batch
-	long b=200;	//lunghezza dei batch
+	long b=100;	//lunghezza dei batch
 	long n_job=b*k;	//numero di job
 	long cont=0;	//contatore per numero job in arrivo
 	long batch=0;	//batch attualmente assegnato
@@ -349,8 +359,10 @@ int main(void)
     	fprintf(stderr, "%f\n", batch_mean[i]);
     }
     */
-    double w = calcola_intDiConf(batch_mean, k, b, n_job, alpha);
-
+    
+    struct conf_int c_int;
+    c_int = calcola_intDiConf(batch_mean, k, b, n_job, alpha);
+    //printf("w = %f, sample_mean %f\n", c_int.w, c_int.sample_mean);
 
     /****************** print results *****************/
 

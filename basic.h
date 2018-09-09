@@ -44,7 +44,7 @@ typedef struct {                /* accumulated sums of    */
     double service;             /*   service times        */
     long served;                /*   number served        */
 } srvstat_list[N + 1];
-
+	
 struct event {
     double time;
     double s_start;
@@ -52,6 +52,11 @@ struct event {
     int job;
     int node;
     int batch;
+};
+
+struct conf_int {
+	double w;
+	double sample_mean;
 };
 
 #endif /* _BASIC_H */
