@@ -7,6 +7,7 @@
 #define STOP     2000000.0      /* terminal (close the door) time */
 #define N        20             /* number of servers              */
 #define S        20             /* threshold                      */
+#define R        4             /* number of repolications        */
 #define L1       4.0            /* class 1 arrival rate           */
 #define L2       6.25           /* class 2 arrival rate           */
 #define M1CLET   0.45           /* class 1 cloudlet service rate  */
@@ -23,6 +24,7 @@
 #define E_ARRIVL 0
 #define E_DEPART 1
 #define E_SETUP  2
+#define E_IGNRVL 3
 
 
 #define handle_error(msg) \
