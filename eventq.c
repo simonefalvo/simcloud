@@ -93,11 +93,11 @@ int event_cmp(void *xp, void *yp)
 }
 
 
-struct event *remove_event(struct queue_t *queue, struct event *e)
+struct event *remove_event(struct queue_t *queue, struct event *e, unsigned int n)
 {
     struct node_t *removed = NULL;
 
-    if (remove_node(e, queue, &removed, event_cmp) == -1)
+    if (remove_noden(e, queue, &removed, n, event_cmp) == -1)
         handle_error("removing an event from the queue");
 
     if (!removed)

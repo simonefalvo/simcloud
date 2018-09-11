@@ -14,6 +14,6 @@ struct event *dequeue_event(struct queue_t *queue);
 struct event *get_head_event(struct queue_t *queue);
 void enqueue_event(struct event *e, struct queue_t *queue);
 struct event *alloc_event();
-struct event *remove_event(struct queue_t *queue, struct event *e);
+struct event *remove_event(struct queue_t *queue, struct event *e, unsigned int n);
 
 #endif /* _EVENTQ_H */

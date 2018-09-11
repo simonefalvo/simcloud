@@ -73,7 +73,7 @@ double srvjob(struct event *e, int node, struct queue_t *queue, clock t)
 
 
 /* return the cloudlet service time of the removed job */
-double rplcjob(struct queue_t *queue, clock t, double *s_int)
+double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
 {
     double setup = GetSetup();
     struct event *e = alloc_event();
@@ -83,7 +83,7 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int)
     e->job = J_CLASS2;
     e->type = E_DEPART;
     e->node = CLET;
-    removed = remove_event(queue, e);
+    removed = remove_event(queue, e, n);
     service = removed->time - removed->s_start;
     *s_int += t.current - removed->s_start;
 
@@ -100,13 +100,37 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int)
 }
 
 
-struct conf_int calcola_intDiConf(double *batch_mean, long k, long b, long n, double alpha){
+double autocor(double *data, size_t size, unsigned int lag)
+{
+    double sum = 0.0;
+    double cosum = 0.0;
+    double cosum_0 = 0.0;
+    double mean;
+    unsigned int i;
+
+    for (i = 0; i < size - lag; i++) {
+        cosum += data[i] * data[i+lag];
+        cosum_0 += data[i] * data[i];
+        sum += data[i];
+    }
+    for (i = size - lag; i < size; i++) {
+        cosum_0 += data[i] * data[i];
+        sum += data[i];
+    }
+    mean = sum / size;
+    cosum = (cosum / (size - lag)) - (mean * mean);
+    cosum_0 = (cosum_0 / size) - (mean * mean);
+
+    return cosum / cosum_0;
+}
+
+
+struct conf_int calcola_intDiConf(double *batch_mean, long k, double alpha){
 	double sample_mean=0.0, dev_std=0.0;
 	struct conf_int c_int;
 	
 	int i;
 	for(i=0; i<k; i++){
-    	batch_mean[i] = batch_mean[i] / b;
     	sample_mean += batch_mean[i];
     	//printf("bm = %f\n", batch_mean[i]);
     	//fprintf(stderr, "%f\n", batch_mean[i]);
@@ -183,6 +207,8 @@ int main(void)
 	double t_start;
 	double t_stop;
 
+    double ac;          /* autocorrelation between batches */
+
     long seed;
 
     int i;      // array index
@@ -194,7 +220,7 @@ int main(void)
 	double alpha = 0.05;
 	//TODO: aggiungere controllo su ultimo batch. n da tastiera, e non ricavato da b*k
 	long k = 64;	        //numero dei batch
-	long b = 20000;	        //lunghezza dei batch
+	long b = 4000;	        //lunghezza dei batch
 	long n_job = b * k;	    //numero di job
 	long cont;	            //contatore per numero job in arrivo
 	long batch;	            //batch attualmente assegnato
@@ -295,7 +321,7 @@ int main(void)
                             n[J_CLASS1 + CLET]++;
                         }
                         else if (n[J_CLASS2 + CLET] > 0) { // replace a class 2 job 
-                                s[J_CLASS2 + CLET] -= rplcjob(&queue, t, &si_clet);
+                                s[J_CLASS2 + CLET] -= rplcjob(&queue, t, &si_clet, n[J_CLASS2 + CLET]);
                                 s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
                                 a[J_CLASS1 + CLET]++;
                                 n[J_CLASS1 + CLET]++;
@@ -412,14 +438,18 @@ int main(void)
         
         //BATCH MEAN
         //calcolo le medie campionarie
-        /*
-        for(i=0; i<k; i++){
-            batch_mean[i] = batch_mean[i]/b;
-            fprintf(stderr, "%f\n", batch_mean[i]);
-        }
-        */
         
-        s_time[r] = calcola_intDiConf(batch_mean, k, b, n_job, alpha);
+        for(i = 0; i < k; i++){
+            //printf("%f\n", batch_mean[i]);
+            batch_mean[i] = batch_mean[i]/b;
+            //printf("%f\n", batch_mean[i]);
+        }
+
+
+        ac = autocor(batch_mean, k, 1);
+        printf("Autocorrelation lag 1 = %f\n", ac);
+         
+        s_time[r] = calcola_intDiConf(batch_mean, k, alpha);
         //printf("w = %f, sample_mean %f\n", c_int.w, c_int.sample_mean);
 
         /****************** print results *****************/
@@ -523,9 +553,12 @@ int main(void)
     }
 
     printf("replication     mean        w\n");
-    for (r = 0; r < R; r++) 
+    for (r = 0; r < R; r++) {
         printf("  %d            %.3f      %.3f\n", 
             r + 1, s_time[r].sample_mean, s_time[r].w);
+        fprintf(stderr, "%d %f %f\n", 
+            r + 1, s_time[r].sample_mean, s_time[r].w);
+    }
 
     return EXIT_SUCCESS;
 }

@@ -20,6 +20,8 @@ int enqueue(void *, struct queue_t *);
 int dequeue(struct queue_t *);
 int prio_enqueue(void *, struct queue_t *, int (void *, void *));
 int remove_node(void *, struct queue_t *, struct node_t **, int (void *, void *));
+int remove_noden(void *, struct queue_t *, struct node_t **, unsigned int,
+                int (void *, void *));
 void fprint_queue(FILE *, struct queue_t *, void (*)(FILE *, void *));
 
 #endif /* _QUEUE_H */

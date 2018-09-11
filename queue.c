@@ -174,6 +174,37 @@ struct node_t **find_ppos(struct node_t *pnode, struct node_t **pnext,
 
 
 /*
+ * Function:	find_pposn
+ * ----------------------------------------------------------------
+ * Find the previos node's next field of the n-th node with the same value
+ * as pnode.
+ *
+ * Parameters:
+ * 		pnode			the node to compare
+ * 		pnext			a pointer to address of the first node to check
+ *      n               the number of the occurrences 
+ * 		compare_funct	function that compares the nodes' values
+ *
+ * Returns:
+ * 		the address of the previous node's next field;
+ *		NULL if there is not a matching node.
+ */
+struct node_t **find_pposn(struct node_t *pnode, struct node_t **pnext, unsigned int n,
+                          int (compare_funct) (void *, void *))
+{
+    struct node_t *p;
+
+    for (p = *pnext; p != NULL; pnext = &p->next, p = p->next) {
+        if (compare_funct(pnode->value, p->value) == 0) {
+            n--;
+            if (!n) return pnext;
+        }
+    }
+    return NULL;
+}
+
+
+/*
  * Function:	remove_node
  * -------------------------------------------------------------
  * Remove the node matching the specified value and put the 
@@ -212,6 +243,47 @@ int remove_node(void *pval, struct queue_t *q, struct node_t **node,
     return 0;
 }
 
+
+
+/*
+ * Function:	remove_noden
+ * -------------------------------------------------------------
+ * Remove the node matching the specified value and put the 
+ * reference in the node variable.
+ * The match is checked by the compare function.
+ *
+ * Parameters:
+ * 		pval			value of the node to remove
+ * 		q				address of the queue
+ * 		node            the reference to the address of the removed node
+ * 		n               the number of occurrences
+ * 		compare_funct	function that compares the values
+ *
+ * 	Returns:
+ * 		0	on success
+ * 		-1	if there is not a node with the value	
+ */
+int remove_noden(void *pval, struct queue_t *q, struct node_t **node, unsigned int n,
+                int (compare_funct) (void *, void *))
+{
+    struct node_t **phead = &q->head;
+    struct node_t *pnew = alloc_node();
+
+    if (pnew == NULL)
+        return -1;
+
+    pnew->value = pval;
+
+    struct node_t **ppos = find_pposn(pnew, phead, n, compare_funct);
+
+    if (ppos == NULL)
+        return -1;
+
+    free(pnew);
+    *node = (remove_after_node(ppos));
+
+    return 0;
+}
 
 
 int prio_enqueue(void *pval, struct queue_t *q,
