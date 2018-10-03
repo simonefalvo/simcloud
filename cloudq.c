@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <math.h>
 #include "rvgs.h"
 #include "rngs.h"
@@ -8,6 +12,7 @@
 #include "queue.h"
 #include "eventq.h"
 #include "rvms.h"
+
 
 double GetArrival(int *j)
 {
@@ -55,18 +60,17 @@ double GetSetup()
 
 
 
-double srvjob(struct event *e, int node, struct queue_t *queue, clock t)
+double srvjob(struct job_t job, unsigned int node, struct queue_t *queue, clock t)
 {
-    double service = GetService(e->job, node);
-    struct event *new = alloc_event();
+    double service = GetService(job.class, node);
+    struct event *e = alloc_event();
 
-	*new=*e;
-    new->time = t.current + service;
-    new->s_start = t.current;
-    new->type = E_DEPART;
-    new->node = node;
-    new->batch = e->batch;
-    enqueue_event(new, queue);
+    job.node = node;
+    job.service[job.class + node] = service;
+    e->job = job;
+    e->time = t.current + service;
+    e->type = E_DEPART;
+    enqueue_event(e, queue);
 
     return service;
 }
@@ -76,25 +80,32 @@ double srvjob(struct event *e, int node, struct queue_t *queue, clock t)
 double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
 {
     double setup = GetSetup();
-    struct event *e = alloc_event();
-    struct event *removed = NULL;
+    struct event *temp = alloc_event();
+    struct job_t *job = &temp->job;
+    struct event *e = NULL;
     double service;
+    double left;                        // remaining service time
     
-    e->job = J_CLASS2;
-    e->type = E_DEPART;
-    e->node = CLET;
-    removed = remove_event(queue, e, n);
-    service = removed->time - removed->s_start;
-    *s_int += t.current - removed->s_start;
+    job->class = J_CLASS2;
+    job->node = CLET;
+    temp->type = E_DEPART;
+    e = remove_event(queue, temp, n);
+    
 
-    // TODO: reinserire removed e togliere le assegnazioni
-	e->s_start = removed->s_start;
-	e->batch = removed->batch;
+    left = e->time - t.current;     
+
     e->time = t.current + setup;
-    e->node = CLOUD;
     e->type = E_SETUP;
+
+    job = &e->job;
+    // job->node = CLOUD;  // change service node
+    job->setup = setup;
+    service = job->service[J_CLASS2 + CLET];
+    job->service[J_CLASS2 + CLET] -= left;
+    *s_int += service - left;
+
     enqueue_event(e, queue);
-    free(removed);
+    free(temp);
 
     return service;
 }
@@ -125,51 +136,30 @@ double autocor(double *data, size_t size, unsigned int lag)
 }
 
 
-struct conf_int calcola_intDiConf(double *batch_mean, long k, double alpha){
-	double sample_mean=0.0, dev_std=0.0;
+struct conf_int confint(double *batch_mean, long k, double alpha){
+
+	double sample_mean = 0.0, dev_std = 0.0;
 	struct conf_int c_int;
 	
 	int i;
-	for(i=0; i<k; i++){
+	for(i = 0; i < k; i++) {
     	sample_mean += batch_mean[i];
     	//printf("bm = %f\n", batch_mean[i]);
     	//fprintf(stderr, "%f\n", batch_mean[i]);
     }
-    sample_mean = sample_mean/k;	//media campionaria ottenuta dalle medie camp dei vari batch
+    sample_mean = sample_mean / k;	//media campionaria ottenuta dalle medie camp dei vari batch
     
-    for(i=0; i<k; i++){
+    for(i = 0; i < k; i++)
 		dev_std += pow(batch_mean[i] - sample_mean, 2);
-	}
+
 	dev_std = sqrt(dev_std/k);
 
 	//VALORE CRITICO t*
-	//TODO: controllare valore parametro n,k
-	double t = idfStudent(k-1, 1-alpha/2);
-	//printf("t = idfStudent è %6.2f\n", t);
-	/*
-	t = idfNormal(0.0, 1.0, 1-alpha/2);
-	printf("t = idfNormal è %6.2f\n", t);
-	*/
-
-	/*
-	//INTERVALLO
-	double int1, int2;
-	int1 = sample_mean - (t*dev_std)/sqrt(k-1);
-	int2 = sample_mean + (t*dev_std)/sqrt(k-1);
-	printf("intervallo : %f , %f\n", int1, int2);
-	*/
+	double t = idfStudent(k - 1, 1 - alpha/2);
 
 	//LUNGHEZZA DELL'INTERVALLO
-	double w = (t*dev_std)/sqrt(k-1);
-	/*
-	printf("media campionaria = %f\n", sample_mean);
-	printf("dev_std = %f\n", dev_std);
-	printf("t*dev_std = %f\n", t*dev_std);
-	printf("sqrt(n-1) = %f\n", sqrt(k-1));
-	printf("w = %6.2f\n", w); 
-	*/ 
-	
-	c_int.w = w;
+	double w = (t * dev_std) / sqrt(k - 1);
+    c_int.w = w;
 	c_int.sample_mean = sample_mean;
 	return c_int;  
 }
@@ -207,30 +197,15 @@ int main(void)
 	double t_start;
 	double t_stop;
 
-    double ac;          /* autocorrelation between batches */
-
     long seed;
 
-    int i;      // array index
-    int r;      // replication index
-    char *node;
-	
-	//BATCH
-	//k>=32, k=64 raccomandato. b almeno 2 volte l'aurocorrelation cut-off lag
-	double alpha = 0.05;
-	//TODO: aggiungere controllo su ultimo batch. n da tastiera, e non ricavato da b*k
-	long k = 64;	        //numero dei batch
-	long b = 4000;	        //lunghezza dei batch
-	long n_job = b * k;	    //numero di job
-	long cont;	            //contatore per numero job in arrivo
-	long batch;	            //batch attualmente assegnato
-	double batch_mean[k];	//array contenente le medie dei vari batch. Viene aggiornato al completamento dei job
-    struct conf_int s_time[R];
-	
-	printf("numero job = %ld,  k= %ld,  b=%ld\n", n_job, k, b);
-	
-	for (i = 0; i < k; i++)
-		batch_mean[i] = 0.0;
+    unsigned int n_job = 100000;
+    unsigned int i;      // array index
+    unsigned int r;      // replication index
+    // char *node;
+
+    int fd;
+    char outfile[32];
 	
     struct event *e;
     struct queue_t queue;
@@ -247,8 +222,19 @@ int main(void)
 
     for (r = 0; r < R; r++, GetSeed(&seed)) {
 
-	    cont = 0;	
-	    batch = 0;
+        sprintf(outfile, "data/service_%d.dat", r);
+        fd = open(outfile, O_WRONLY | O_CREAT, 00744);
+        if (fd == -1)
+            handle_error("opening output file");
+
+        for (i = 0; i < 4; i++) {
+            n[i] = 0;       
+            a[i] = 0;   
+            c[i] = 0;       
+            c_stop[i] = 0;  
+            s[i] = 0.0; 
+            area[i] = 0.0;
+        }
         n_setup = 0;           
         n_int = 0;            
         arrived = 0;         
@@ -263,33 +249,24 @@ int main(void)
         t_start = t.current;
         t_stop = INFINITY;
 
-        for (i = 0; i < 4; i++) {
-            n[i] = 0;       
-            a[i] = 0;   
-            c[i] = 0;       
-            c_stop[i] = 0;  
-            s[i] = 0.0; 
-            area[i] = 0.0;
-        }
 
-
-        PlantSeeds(seed); 
+        PlantSeeds(seed);
         e = alloc_event();
         e->time = GetArrival(&jobclass);
         e->type = E_ARRIVL;
-        e->job = jobclass;
+        e->job.class = jobclass;
 
         enqueue_event(e, &queue);
 
 
         while (queue.head != NULL) {
 
-            e = dequeue_event(&queue); 
+            e = dequeue_event(&queue);
             t.next = e->time;                               /* next event time */
             
             for (i = 0; i < 4; i++)                         /* update integral  */
-                area[i] += (t.next - t.current) * n[i];   
-            area_setup += (t.next - t.current) * n_setup;              
+                area[i] += (t.next - t.current) * n[i];
+            area_setup += (t.next - t.current) * n_setup;
 
             t.current = t.next;                             /* advance the clock */
 
@@ -298,31 +275,24 @@ int main(void)
 
             case E_ARRIVL:                                  /* process an arrival */
 
-            //BATCH
                 arrived++;
-                cont++;
-                if (cont < b)
-                    e->batch = batch;
-                else {
-                    cont = 0;
-                    batch++;
-                }
+                e->job.id = arrived;
 
-                if (e->job == J_CLASS1) {            /* process a class 1 arrival */
+                if (e->job.class == J_CLASS1) {            /* process a class 1 arrival */
                     //fprintf(stderr, "class 1 arrival\n");
                     if (n[J_CLASS1 + CLET] == N) {
-                        s[J_CLASS1 + CLOUD] += srvjob(e, CLOUD, &queue, t);
+                        s[J_CLASS1 + CLOUD] += srvjob(e->job, CLOUD, &queue, t);
                         a[J_CLASS1 + CLOUD]++;
                         n[J_CLASS1 + CLOUD]++;
                     }
                     else if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] < S) { // accept job
-                            s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
+                            s[J_CLASS1 + CLET] += srvjob(e->job, CLET, &queue, t);
                             a[J_CLASS1 + CLET]++;
                             n[J_CLASS1 + CLET]++;
                         }
                         else if (n[J_CLASS2 + CLET] > 0) { // replace a class 2 job 
                                 s[J_CLASS2 + CLET] -= rplcjob(&queue, t, &si_clet, n[J_CLASS2 + CLET]);
-                                s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
+                                s[J_CLASS1 + CLET] += srvjob(e->job, CLET, &queue, t);
                                 a[J_CLASS1 + CLET]++;
                                 n[J_CLASS1 + CLET]++;
                                 n[J_CLASS2 + CLET]--;
@@ -330,7 +300,7 @@ int main(void)
                                 n_int++;
                             }
                             else { // accept job
-                                s[J_CLASS1 + CLET] += srvjob(e, CLET, &queue, t);
+                                s[J_CLASS1 + CLET] += srvjob(e->job, CLET, &queue, t);
                                 a[J_CLASS1 + CLET]++;
                                 n[J_CLASS1 + CLET]++;
                             }
@@ -338,18 +308,18 @@ int main(void)
                 else {                 /* process a class 2 arrival */
                     //fprintf(stderr, "class 2 arrival\n");
                     if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] >= S) {
-                        s[J_CLASS2 + CLOUD] += srvjob(e, CLOUD, &queue, t);
+                        s[J_CLASS2 + CLOUD] += srvjob(e->job, CLOUD, &queue, t);
                         a[J_CLASS2 + CLOUD]++;
                         n[J_CLASS2 + CLOUD]++;
                     }
                     else {
-                        s[J_CLASS2 + CLET] += srvjob(e, CLET, &queue, t);
+                        s[J_CLASS2 + CLET] += srvjob(e->job, CLET, &queue, t);
                         a[J_CLASS2 + CLET]++;
                         n[J_CLASS2 + CLET]++;
                     }
                 }
-                e->time = GetArrival(&jobclass); /* set next arrival t */
-                e->job = jobclass;               /* set next arrival j */
+                e->time = GetArrival(&jobclass);       /* set next arrival time */
+                e->job.class = jobclass;               /* set next arrival class */
                 
                 //if (e->time <= STOP) 
                 if (arrived >= n_job) {
@@ -389,7 +359,7 @@ int main(void)
                 */               
            case E_SETUP:
                 //fprintf(stderr, "setup\n");
-                si_cloud += srvjob(e, CLOUD, &queue, t);
+                si_cloud += srvjob(e->job, CLOUD, &queue, t);
                 n[J_CLASS2 + CLOUD]++;
                 n_setup--;
 
@@ -406,19 +376,23 @@ int main(void)
 
             case E_DEPART:                /* process a departure */
                 
-                node = e->node == CLET ? "cloudlet" : "cloud";
+                //node = e->node == CLET ? "cloudlet" : "cloud";
                 //fprintf(stderr, "class %d departure from %s\n", e->job + 1, node);
 
-                n[e->job + e->node]--;
-                c[e->job + e->node]++;
+                n[e->job.class + e->job.node]--;
+                c[e->job.class + e->job.node]++;
 
                 if (t.current <= t_stop)
-                    c_stop[e->job + e->node]++;
+                    c_stop[e->job.class + e->job.node]++;
 
-                //BATCH
-                batch_mean[e->batch] += e->time - e->s_start;
-                //printf("batch index = %d, service time = %f\n", e->batch, e->time - e->s_start);
+                // write data to outfile
+                dprintf(fd, "%ld %f %f %f %f %f\n", e->job.id, 
+                    e->job.service[0], e->job.service[1], 
+                    e->job.service[2], e->job.service[3], e->job.setup);
+
                 free(e);
+
+                
 
                 /*
                 fprint_queue(stderr, &queue, fprint_clet);
@@ -434,23 +408,13 @@ int main(void)
             default:
                 handle_error("unknown event type");
             }
+
         }
         
-        //BATCH MEAN
-        //calcolo le medie campionarie
+        // close output file
+        if (close(fd) == -1)
+            handle_error("closing output file");
         
-        for(i = 0; i < k; i++){
-            //printf("%f\n", batch_mean[i]);
-            batch_mean[i] = batch_mean[i]/b;
-            //printf("%f\n", batch_mean[i]);
-        }
-
-
-        ac = autocor(batch_mean, k, 1);
-        printf("Autocorrelation lag 1 = %f\n", ac);
-         
-        s_time[r] = calcola_intDiConf(batch_mean, k, alpha);
-        //printf("w = %f, sample_mean %f\n", c_int.w, c_int.sample_mean);
 
         /****************** print results *****************/
 
@@ -550,14 +514,6 @@ int main(void)
         printf("  Class 2 cloud completions ...... = %ld\n\n", c[J_CLASS2 + CLOUD]);
        
 
-    }
-
-    printf("replication     mean        w\n");
-    for (r = 0; r < R; r++) {
-        printf("  %d            %.3f      %.3f\n", 
-            r + 1, s_time[r].sample_mean, s_time[r].w);
-        fprintf(stderr, "%d %f %f\n", 
-            r + 1, s_time[r].sample_mean, s_time[r].w);
     }
 
     return EXIT_SUCCESS;

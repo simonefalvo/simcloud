@@ -6,27 +6,30 @@
 void fprint_event(FILE * stream, void *p)
 {
     struct event *e = p;
+    struct job_t *j = &e->job;
     char type = e->type == E_ARRIVL ? 'a' : 'd';
-    char *node = e->node == CLET? "clet" : "cloud"; 
+    char *node = j->node == CLET? "clet" : "cloud"; 
 
     fprintf(stream, "|%f-", e->time);
     fprintf(stream, "%s-", node);
     fprintf(stream, "%c-", type);
-    fprintf(stream, "%d|", e->job + 1);
+    fprintf(stream, "%d|", j->class + 1);
 }
 
 void fprint_clet(FILE * stream, void *p)
 {
     struct event *e = p;
-    if (e->type == E_DEPART && e->node == CLET)
-        fprintf(stream, "-%d-", e->job + 1);
+    struct job_t *j = &e->job;
+    if (e->type == E_DEPART && j->node == CLET)
+        fprintf(stream, "-%d-", j->class + 1);
 }
 
 void fprint_cloud(FILE * stream, void *p)
 {
     struct event *e = p;
-    if (e->type == E_DEPART && e->node == CLOUD)
-        fprintf(stream, "-%d-", e->job + 1);
+    struct job_t *j = &e->job;
+    if (e->type == E_DEPART && j->node == CLOUD)
+        fprintf(stream, "-%d-", j->class + 1);
 }
 
 
@@ -86,10 +89,12 @@ int event_cmp(void *xp, void *yp)
 {
     struct event *x = xp;
     struct event *y = yp;
+    struct job_t *job_x = &x->job;
+    struct job_t *job_y = &y->job;
 
-    return (x->job != y->job)
-        || (x->type != y->type) 
-        || (x->node != y->node);
+    return (job_x->class != job_y->class)
+        || (job_x->node != job_y->node) 
+        || (x->type != y->type);
 }
 
 
