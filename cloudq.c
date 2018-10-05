@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <math.h>
+#include <string.h>
 #include "rvgs.h"
 #include "rngs.h"
 #include "basic.h"
@@ -64,6 +65,7 @@ double srvjob(struct job_t job, unsigned int node, struct queue_t *queue, clock 
 {
     double service = GetService(job.class, node);
     struct event *e = alloc_event();
+    memset(e, 0, sizeof(struct event));
 
     job.node = node;
     job.service[job.class + node] = service;
@@ -111,58 +113,7 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
 }
 
 
-double autocor(double *data, size_t size, unsigned int lag)
-{
-    double sum = 0.0;
-    double cosum = 0.0;
-    double cosum_0 = 0.0;
-    double mean;
-    unsigned int i;
 
-    for (i = 0; i < size - lag; i++) {
-        cosum += data[i] * data[i+lag];
-        cosum_0 += data[i] * data[i];
-        sum += data[i];
-    }
-    for (i = size - lag; i < size; i++) {
-        cosum_0 += data[i] * data[i];
-        sum += data[i];
-    }
-    mean = sum / size;
-    cosum = (cosum / (size - lag)) - (mean * mean);
-    cosum_0 = (cosum_0 / size) - (mean * mean);
-
-    return cosum / cosum_0;
-}
-
-
-struct conf_int confint(double *batch_mean, long k, double alpha){
-
-	double sample_mean = 0.0, dev_std = 0.0;
-	struct conf_int c_int;
-	
-	int i;
-	for(i = 0; i < k; i++) {
-    	sample_mean += batch_mean[i];
-    	//printf("bm = %f\n", batch_mean[i]);
-    	//fprintf(stderr, "%f\n", batch_mean[i]);
-    }
-    sample_mean = sample_mean / k;	//media campionaria ottenuta dalle medie camp dei vari batch
-    
-    for(i = 0; i < k; i++)
-		dev_std += pow(batch_mean[i] - sample_mean, 2);
-
-	dev_std = sqrt(dev_std/k);
-
-	//VALORE CRITICO t*
-	double t = idfStudent(k - 1, 1 - alpha/2);
-
-	//LUNGHEZZA DELL'INTERVALLO
-	double w = (t * dev_std) / sqrt(k - 1);
-    c_int.w = w;
-	c_int.sample_mean = sample_mean;
-	return c_int;  
-}
 
 
 
@@ -252,6 +203,7 @@ int main(void)
 
         PlantSeeds(seed);
         e = alloc_event();
+        memset(e, 0, sizeof(struct event));
         e->time = GetArrival(&jobclass);
         e->type = E_ARRIVL;
         e->job.class = jobclass;

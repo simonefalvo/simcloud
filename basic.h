@@ -62,9 +62,5 @@ struct event {
     unsigned int n[4];
 };
 
-struct conf_int {
-	double w;
-	double sample_mean;
-};
 
 #endif /* _BASIC_H */
