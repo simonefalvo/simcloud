@@ -150,7 +150,7 @@ int main(void)
 
     long seed;
 
-    unsigned int n_job = 100000;
+    long unsigned int n_job = 100000;
     unsigned int i;      // array index
     unsigned int r;      // replication index
     // char *node;
@@ -227,8 +227,8 @@ int main(void)
 
             case E_ARRIVL:                                  /* process an arrival */
 
-                arrived++;
                 e->job.id = arrived;
+                arrived++;
 
                 if (e->job.class == J_CLASS1) {            /* process a class 1 arrival */
                     //fprintf(stderr, "class 1 arrival\n");
