@@ -15,7 +15,7 @@
 #include "rvms.h"
 
 
-double GetArrival(int *j)
+double GetArrival(unsigned int *j)
 {
 	const double mean[2] = {1/L1, 1/L2};	
 	static double arrival[2] = {START, START};
@@ -81,12 +81,12 @@ double srvjob(struct job_t job, unsigned int node, struct queue_t *queue, clock 
 /* return the cloudlet service time of the removed job */
 double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
 {
+    double service;
+    double left;                        // remaining service time
     double setup = GetSetup();
     struct event *temp = alloc_event();
     struct job_t *job = &temp->job;
     struct event *e = NULL;
-    double service;
-    double left;                        // remaining service time
     
     job->class = J_CLASS2;
     job->node = CLET;
@@ -120,20 +120,20 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
 int main(void)
 {
     clock t;
-    int jobclass;
+    unsigned int jobclass;
     
-    long n[4];          /* local population */
-    long n_setup;       /* setup population */
+    unsigned long n[4];          /* local population */
+    unsigned long n_setup;       /* setup population */
 
-    long n_int;         /* total # of interrupted jobs  */
+    unsigned long n_int;         /* total # of interrupted jobs  */
 
-    long arrived;       /* global arrivals  */
-    long a[4];          /* local arrivals   */
+    unsigned long arrived;       /* global arrivals  */
+    unsigned long a[4];          /* local arrivals   */
 
-    long completions;   /* global completions                   */
-    long compl_stop;    /* glogal completions in [START, STOP]  */
-    long c[4];          /* local completions                    */
-    long c_stop[4];     /* local completions in [START, STOP]   */ 
+    unsigned long completions;   /* global completions                   */
+    unsigned long compl_stop;    /* glogal completions in [START, STOP]  */
+    unsigned long c[4];          /* local completions                    */
+    unsigned long c_stop[4];     /* local completions in [START, STOP]   */ 
 
     double service;     /* global service time  */
     double s[4];        /* local service time   */
@@ -150,7 +150,7 @@ int main(void)
 
     long seed;
 
-    long unsigned int n_job = 100000;
+    long unsigned int n_job = 1000000;
     unsigned int i;      // array index
     unsigned int r;      // replication index
     // char *node;
@@ -339,8 +339,10 @@ int main(void)
 
                 // write data to outfile
                 dprintf(fd, "%ld %f %f %f %f %f\n", e->job.id, 
-                    e->job.service[0], e->job.service[1], 
-                    e->job.service[2], e->job.service[3], e->job.setup);
+                    e->job.service[J_CLASS1 + CLET], 
+                    e->job.service[J_CLASS2 + CLET], 
+                    e->job.service[J_CLASS1 + CLOUD], 
+                    e->job.service[J_CLASS2 + CLOUD], e->job.setup);
 
                 free(e);
 
@@ -362,7 +364,13 @@ int main(void)
             }
 
         }
-        
+
+        // write completions
+        dprintf(fd, "%d %ld %ld %ld %ld %ld\n", -1,
+                c[J_CLASS1 + CLET], c[J_CLASS2 + CLET], 
+                c[J_CLASS1 + CLOUD], c[J_CLASS2 + CLOUD],
+                n_int);
+
         // close output file
         if (close(fd) == -1)
             handle_error("closing output file");
