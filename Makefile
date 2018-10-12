@@ -1,9 +1,7 @@
 CC := gcc
 CFLAGS := -Wall -Wextra -O3 
 
-PROGS := clet \
-         cloud \
-         cloudq \
+PROGS := cloudq \
          srv_bm \
          thr_bm \
          pop_bm
