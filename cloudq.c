@@ -162,6 +162,7 @@ int main(void)
     int fd_int;
 
     char outfile[32];
+    char shell_cmd[128];
 	
     struct event *e;
     struct queue_t queue;
@@ -179,7 +180,7 @@ int main(void)
     for (r = 0; r < R; r++, GetSeed(&seed)) {
 
         // open output files
-        sprintf(outfile, "data/service_%d.dat", r);
+        sprintf(outfile, "data/srvtemp.dat");
         fd_srv = open(outfile, O_WRONLY | O_CREAT, 00744);
         sprintf(outfile, "data/throughput_%d.dat", r);
         fd_thr = open(outfile, O_WRONLY | O_CREAT, 00744);
@@ -408,6 +409,11 @@ int main(void)
         if (close(fd_int) == -1)
             handle_error("closing output file");
         
+        /* sort service output data */
+        sprintf(shell_cmd, 
+            "sort -n data/srvtemp.dat > data/service_%d.dat; rm data/srvtemp.dat", r);
+        if (system(shell_cmd) == -1)
+            handle_error("system() - executing sort command");
 
         /****************** print results *****************/
 
@@ -505,8 +511,6 @@ int main(void)
         printf("  Class 2 cloudlet completions ... = %ld\n", c[J_CLASS2 + CLET]); 
         printf("  Class 1 cloud completions ...... = %ld\n", c[J_CLASS1 + CLOUD]);
         printf("  Class 2 cloud completions ...... = %ld\n\n", c[J_CLASS2 + CLOUD]);
-       
-
     }
 
     return EXIT_SUCCESS;
