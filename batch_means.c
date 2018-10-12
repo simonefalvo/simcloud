@@ -133,7 +133,7 @@ int main()
     if (!file)
         handle_error("opening data file");
 
-    // get sample size
+    // get batch size
     if (fscanf(file, "-1 %ld %ld %ld %ld %ld\n",
         &c1_clet, &c2_clet, &c1_cloud, &c2_cloud, &c_setup) == EOF)
         handle_error("reading completions"); 

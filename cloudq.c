@@ -147,15 +147,20 @@ int main(void)
 
 	double t_start;
 	double t_stop;
+	double elapsed;
 
     long seed;
 
-    long unsigned int n_job = 1000000;
     unsigned int i;      // array index
     unsigned int r;      // replication index
     // char *node;
 
-    int fd;
+    // output file descriptors
+    int fd_srv;
+    int fd_thr;
+    int fd_pop;
+    int fd_int;
+
     char outfile[32];
 	
     struct event *e;
@@ -173,11 +178,20 @@ int main(void)
 
     for (r = 0; r < R; r++, GetSeed(&seed)) {
 
+        // open output files
         sprintf(outfile, "data/service_%d.dat", r);
-        fd = open(outfile, O_WRONLY | O_CREAT, 00744);
-        if (fd == -1)
+        fd_srv = open(outfile, O_WRONLY | O_CREAT, 00744);
+        sprintf(outfile, "data/throughput_%d.dat", r);
+        fd_thr = open(outfile, O_WRONLY | O_CREAT, 00744);
+        sprintf(outfile, "data/population_%d.dat", r);
+        fd_pop = open(outfile, O_WRONLY | O_CREAT, 00744);
+        sprintf(outfile, "data/interruptions_%d.dat", r);
+        fd_int = open(outfile, O_WRONLY | O_CREAT, 00744);
+        if (fd_srv == -1 || fd_thr == -1 || 
+            fd_pop == -1 || fd_int == -1)
             handle_error("opening output file");
 
+        // init variables 
         for (i = 0; i < 4; i++) {
             n[i] = 0;       
             a[i] = 0;   
@@ -274,7 +288,7 @@ int main(void)
                 e->job.class = jobclass;               /* set next arrival class */
                 
                 //if (e->time <= STOP) 
-                if (arrived >= n_job) {
+                if (arrived >= N_JOBS) {
                     e->type = E_IGNRVL; // arrival to not process
                     t_stop = t.current; 
                 }
@@ -338,12 +352,25 @@ int main(void)
                     c_stop[e->job.class + e->job.node]++;
 
                 // write data to outfile
-                dprintf(fd, "%ld %f %f %f %f %f\n", e->job.id, 
+                dprintf(fd_srv, "%ld %f %f %f %f %f\n", e->job.id, 
                     e->job.service[J_CLASS1 + CLET], 
                     e->job.service[J_CLASS2 + CLET], 
                     e->job.service[J_CLASS1 + CLOUD], 
                     e->job.service[J_CLASS2 + CLOUD], e->job.setup);
-
+                elapsed = t.current - t_start;
+                dprintf(fd_thr, "%f %f %f %f\n", 
+                    c[J_CLASS1 + CLET] / elapsed, 
+                    c[J_CLASS2 + CLET] / elapsed, 
+                    c[J_CLASS1 + CLOUD] / elapsed,
+                    c[J_CLASS2 + CLOUD] / elapsed);
+                dprintf(fd_pop, "%f %f %f %f %f\n", 
+                    area[J_CLASS1 + CLET] / elapsed, 
+                    area[J_CLASS2 + CLET] / elapsed, 
+                    area[J_CLASS1 + CLOUD] / elapsed,
+                    area[J_CLASS2 + CLOUD] / elapsed, 
+                    area_setup / elapsed);
+                dprintf(fd_int, "%f\n", (double) n_int / a[J_CLASS2 + CLET]);
+                    
                 free(e);
 
                 
@@ -366,13 +393,19 @@ int main(void)
         }
 
         // write completions
-        dprintf(fd, "%d %ld %ld %ld %ld %ld\n", -1,
+        dprintf(fd_srv, "%d %ld %ld %ld %ld %ld\n", -1,
                 c[J_CLASS1 + CLET], c[J_CLASS2 + CLET], 
                 c[J_CLASS1 + CLOUD], c[J_CLASS2 + CLOUD],
                 n_int);
 
-        // close output file
-        if (close(fd) == -1)
+        // close output files
+        if (close(fd_srv) == -1)
+            handle_error("closing output file");
+        if (close(fd_thr) == -1)
+            handle_error("closing output file");
+        if (close(fd_pop) == -1)
+            handle_error("closing output file");
+        if (close(fd_int) == -1)
             handle_error("closing output file");
         
 

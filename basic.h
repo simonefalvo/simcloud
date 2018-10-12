@@ -5,6 +5,7 @@
 
 #define START    0.0            /* initial (open the door) time   */
 #define STOP     2000000.0      /* terminal (close the door) time */
+#define N_JOBS   500000         /* number of jobs to be processed */
 #define N        20             /* number of servers              */
 #define S        20             /* threshold                      */
 #define R        4              /* number of repolications        */
