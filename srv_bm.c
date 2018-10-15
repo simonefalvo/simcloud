@@ -28,13 +28,13 @@ int main()
     unsigned long c_setup;
 
     // counters
-    unsigned long n1 = 0;
-    unsigned long n2 = 0;
-    unsigned long n1_clet = 0;
-    unsigned long n2_clet = 0;
-    unsigned long n1_cloud = 0;
-    unsigned long n2_cloud = 0;
-    unsigned long n_int = 0;
+    unsigned long n1;
+    unsigned long n2;
+    unsigned long n1_clet;
+    unsigned long n2_clet;
+    unsigned long n1_cloud;
+    unsigned long n2_cloud;
+    unsigned long n_int;
     
     // batch sizes 
     unsigned long b;
@@ -65,7 +65,7 @@ int main()
 
     for (r = 0; r < R; r++) {
 
-        // init structures
+        // init variables 
         memset(s, 0, K * sizeof(double));
         memset(s1, 0, K * sizeof(double));
         memset(s2, 0, K * sizeof(double));
@@ -74,6 +74,13 @@ int main()
         memset(s1cloud, 0, K * sizeof(double));
         memset(s2cloud, 0, K * sizeof(double));
         memset(sint, 0, K * sizeof(double));
+        n1 = 0;
+        n2 = 0;
+        n1_clet = 0;
+        n2_clet = 0;
+        n1_cloud = 0;
+        n2_cloud = 0;
+        n_int = 0;
 
         // open the file
         sprintf(filename, "data/service_%d.dat", r);
@@ -95,6 +102,7 @@ int main()
         b_int = c_setup / K;
         max_id = b * K;
 
+        id = 0;
         // get data
         while (id < max_id - 1) {
             if (fscanf(file, "%ld %lf %lf %lf %lf %lf\n", &id,
