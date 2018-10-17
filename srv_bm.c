@@ -40,8 +40,10 @@ int main()
     unsigned long b;
     unsigned long b1;
     unsigned long b2;
+    unsigned long b_clet;
     unsigned long b1_clet;
     unsigned long b2_clet;
+    unsigned long b_cloud;
     unsigned long b1_cloud;
     unsigned long b2_cloud;
     unsigned long b_int;
@@ -54,8 +56,10 @@ int main()
     double s[K];
     double s1[K];
     double s2[K];
+    double sclet[K];
     double s1clet[K];
     double s2clet[K];
+    double scloud[K];
     double s1cloud[K];
     double s2cloud[K];
     double sint[K];
@@ -69,8 +73,10 @@ int main()
         memset(s, 0, K * sizeof(double));
         memset(s1, 0, K * sizeof(double));
         memset(s2, 0, K * sizeof(double));
+        memset(sclet, 0, K * sizeof(double));
         memset(s1clet, 0, K * sizeof(double));
         memset(s2clet, 0, K * sizeof(double));
+        memset(scloud, 0, K * sizeof(double));
         memset(s1cloud, 0, K * sizeof(double));
         memset(s2cloud, 0, K * sizeof(double));
         memset(sint, 0, K * sizeof(double));
@@ -95,8 +101,10 @@ int main()
         b = (c1_clet + c2_clet + c1_cloud + c2_cloud) / K;
         b1 = (c1_clet + c1_cloud) / K;
         b2 = (c2_clet + c2_cloud) / K;
+        b_clet = (c1_clet + c2_clet) / K;
         b1_clet = c1_clet / K;
         b2_clet = c2_clet / K;
+        b_cloud = (c1_cloud + c2_cloud) / K;
         b1_cloud = c1_cloud / K;
         b2_cloud = c2_cloud / K;
         b_int = c_setup / K;
@@ -122,18 +130,22 @@ int main()
             }
             if (s1_clet) {
                 s1clet[n1_clet / b1_clet] += s1_clet;
+                sclet[(n1_clet + n2_clet) / b_clet] += s1_clet;
                 n1_clet++;
             }
             if (s2_clet && !setup) {
                 s2clet[n2_clet / b2_clet] += s2_clet;
+                sclet[(n1_clet + n2_clet) / b_clet] += s2_clet;
                 n2_clet++;
             }
             if (s1_cloud) {
                 s1cloud[n1_cloud / b1_cloud] += s1_cloud;
+                scloud[(n1_cloud + n2_cloud) / b_cloud] += s1_cloud;
                 n1_cloud++;
             }
             if (s2_cloud) {
                 s2cloud[n2_cloud / b2_cloud] += s2_cloud;
+                scloud[(n1_cloud + n2_cloud) / b_cloud] += s2_cloud;
                 n2_cloud++;
             }
             if (setup) {
@@ -153,8 +165,10 @@ int main()
             s2[i] /= b2;
             s1clet[i] /= b1_clet;
             s2clet[i] /= b2_clet;
+            sclet[i] /= b_clet;
             s1cloud[i] /= b1_cloud;
             s2cloud[i] /= b2_cloud;
+            scloud[i] /= b_cloud;
             sint[i] /= b_int;
         }
 
@@ -171,10 +185,14 @@ int main()
         printf("class 1 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
         c = confint(s2clet, K, ALPHA); 
         printf("class 2 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
+        c = confint(sclet, K, ALPHA); 
+        printf("cloudlet service time ....... = %f  +/- %f\n", c.mean, c.w);
         c = confint(s1cloud, K, ALPHA); 
         printf("class 1 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
         c = confint(s2cloud, K, ALPHA); 
         printf("class 2 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
+        c = confint(scloud, K, ALPHA); 
+        printf("cloud service time .......... = %f  +/- %f\n", c.mean, c.w);
         c = confint(sint, K, ALPHA); 
         printf("interrupted jobs service time = %f  +/- %f\n", c.mean, c.w);
     }

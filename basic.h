@@ -26,6 +26,8 @@
 #define E_DEPART 1
 #define E_SETUP  2
 #define E_IGNRVL 3
+#define YNGER_PLCY 0            /* yonger job preemption policy   */
+#define OLDER_PLCY 0            /* older  job preemption policy   */
 
 
 #define handle_error(msg) \

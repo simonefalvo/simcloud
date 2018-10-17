@@ -32,8 +32,10 @@ int main()
     double n2[K];
     double n1clet[K];
     double n2clet[K];
+    double nclet[K];
     double n1cloud[K];
     double n2cloud[K];
+    double ncloud[K];
     double nsetup[K];
     double intpercent[K];
 
@@ -48,8 +50,12 @@ int main()
         memset(n2, 0, K * sizeof(double));
         memset(n1clet, 0, K * sizeof(double));
         memset(n2clet, 0, K * sizeof(double));
+        memset(nclet, 0, K * sizeof(double));
         memset(n1cloud, 0, K * sizeof(double));
         memset(n2cloud, 0, K * sizeof(double));
+        memset(ncloud, 0, K * sizeof(double));
+        memset(nsetup, 0, K * sizeof(double));
+        memset(intpercent, 0, K * sizeof(double));
 
         // open the files
         sprintf(filename, "data/population_%d.dat", r);
@@ -78,8 +84,10 @@ int main()
             n2[i / b] += n2_clet + n2_cloud;
             n1clet[i / b] += n1_clet;
             n2clet[i / b] += n2_clet;
+            nclet[i / b] += n1_clet + n2_clet;
             n1cloud[i / b] += n1_cloud;
             n2cloud[i / b] += n2_cloud;
+            ncloud[i / b] += n1_cloud + n2_cloud;
             nsetup[i / b] += n_setup;
             intpercent[i / b] += int_percent;
         }
@@ -97,8 +105,10 @@ int main()
             n2[i] /= b;
             n1clet[i] /= b;
             n2clet[i] /= b;
+            nclet[i] /= b;
             n1cloud[i] /= b;
             n2cloud[i] /= b;
+            ncloud[i] /= b;
             nsetup[i] /= b;
             intpercent[i] /= b;
         }
@@ -116,10 +126,14 @@ int main()
         printf("class 1 cloudlet mean population = %lf  +/- %lf\n", c.mean, c.w);
         c = confint(n2clet, K, ALPHA); 
         printf("class 2 cloudlet mean population = %lf  +/- %lf\n", c.mean, c.w);
+        c = confint(nclet, K, ALPHA); 
+        printf("cloudlet mean population ....... = %lf  +/- %lf\n", c.mean, c.w);
         c = confint(n1cloud, K, ALPHA); 
         printf("class 1 cloud mean population .. = %lf  +/- %lf\n", c.mean, c.w);
         c = confint(n2cloud, K, ALPHA); 
         printf("class 2 cloud mean population .. = %lf  +/- %lf\n", c.mean, c.w);
+        c = confint(ncloud, K, ALPHA); 
+        printf("cloud mean population .......... = %lf  +/- %lf\n", c.mean, c.w);
         c = confint(nsetup, K, ALPHA); 
         printf("setup mean population .......... = %lf  +/- %lf\n", c.mean, c.w);
         c = confint(intpercent, K, ALPHA); 
