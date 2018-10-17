@@ -9,7 +9,6 @@
 #include "rvgs.h"
 #include "rngs.h"
 #include "basic.h"
-#include "utils.h"
 #include "queue.h"
 #include "eventq.h"
 #include "rvms.h"
