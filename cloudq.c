@@ -93,8 +93,8 @@ double srvjob(struct job_t job, unsigned int node, struct queue_t *queue, clock 
 }
 
 
-/* return the cloudlet service time of the removed job */
-double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
+/* return the cloudlet execution time of the removed job */
+double rplcjob(struct queue_t *queue, clock t, unsigned int n)
 {
     double service;
     double left;                        // remaining service time
@@ -108,23 +108,20 @@ double rplcjob(struct queue_t *queue, clock t, double *s_int, unsigned int n)
     temp->type = E_DEPART;
     e = remove_event(queue, temp, rmpos(n));
     
-
     left = e->time - t.current;     
 
     e->time = t.current + setup;
     e->type = E_SETUP;
 
     job = &e->job;
-    // job->node = CLOUD;  // change service node
     job->setup = setup;
     service = job->service[J_CLASS2 + CLET];
     job->service[J_CLASS2 + CLET] -= left;
-    *s_int += service - left;
 
     enqueue_event(e, queue);
     free(temp);
 
-    return service;
+    return service - left;
 }
 
 
@@ -142,35 +139,29 @@ void audit(struct queue_t *queue, unsigned long *n)
 
 int main(void)
 {
-    clock t;
-    unsigned int jobclass;
+    clock t;                    /* simulation clock */
+    unsigned int jobclass;      /* class of the current job */ 
     
-    unsigned long n[4];          /* local population */
-    unsigned long n_setup;       /* setup population */
+    unsigned long n[4];         /* local population */
+    unsigned long n_setup;      /* setup population */
 
-    unsigned long n_int;         /* total # of interrupted jobs  */
+    unsigned long arrived;      /* global arrivals  */
+    unsigned long a[4];         /* local arrivals   */
+    unsigned long c[4];         /* local completions                    */
+    unsigned long c_stop[4];    /* local completions in [START, STOP]   */ 
+    unsigned long n_int;        /* total interrupted jobs   */
 
-    unsigned long arrived;       /* global arrivals  */
-    unsigned long a[4];          /* local arrivals   */
+    double s[4];                /* local service time   */
+    double si_clet;     	    /* interrupted jobs cloudlet service time   */
+    double si_cloud;    	    /* interrupted jobs cloud service time      */
+    double s_setup;     	    /* interruptes jobs setup time              */
 
-    unsigned long completions;   /* global completions                   */
-    unsigned long compl_stop;    /* glogal completions in [START, STOP]  */
-    unsigned long c[4];          /* local completions                    */
-    unsigned long c_stop[4];     /* local completions in [START, STOP]   */ 
+    double area[4];             /* local area of jobs in time */
+    double area_setup;          /* area of setup jobs in time */
 
-    double service;         /* global service time  */
-    double s[4];            /* local service time   */
-    double si_clet;         /* interrupted jobs cloudlet service time   */
-    double si_cloud;        /* interrupted jobs cloud service time      */
-    double s_setup;         /* interruptes jobs setup time              */
-
-    double area_tot;        /* time integrated # in the system */
-    double area[4];
-    double area_setup;
-
-	double t_start;
-	double t_stop;
-	double elapsed;
+	double t_start;     /* start time of the simulation                         */ 
+	double t_stop;      /* stop time of the simulation                          */
+	double elapsed;     /* elapsed time from the beginning of the simulation    */
 
     long seed;
 
@@ -227,13 +218,9 @@ int main(void)
         n_setup = 0;           
         n_int = 0;            
         arrived = 0;         
-        completions = 0;           
-        compl_stop = 0;            
-        service = 0;                 
         si_clet = 0.0;           
         si_cloud = 0.0;          
         s_setup = 0.0;           
-        area_tot = 0.0;         
         area_setup = 0.0;
         t_start = t.current;
         t_stop = INFINITY;
@@ -271,18 +258,18 @@ int main(void)
                 if (e->job.class == J_CLASS1) {            /* process a class 1 arrival */
                     //fprintf(stderr, "class 1 arrival\n");
                     if (n[J_CLASS1 + CLET] == N) {
-                        s[J_CLASS1 + CLOUD] += srvjob(e->job, CLOUD, &queue, t);
+                        srvjob(e->job, CLOUD, &queue, t);
                         a[J_CLASS1 + CLOUD]++;
                         n[J_CLASS1 + CLOUD]++;
                     }
                     else if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] < S) { // accept job
-                            s[J_CLASS1 + CLET] += srvjob(e->job, CLET, &queue, t);
+                            srvjob(e->job, CLET, &queue, t);
                             a[J_CLASS1 + CLET]++;
                             n[J_CLASS1 + CLET]++;
                         }
                         else if (n[J_CLASS2 + CLET] > 0) { // replace a class 2 job 
-                                s[J_CLASS2 + CLET] -= rplcjob(&queue, t, &si_clet, n[J_CLASS2 + CLET]);
-                                s[J_CLASS1 + CLET] += srvjob(e->job, CLET, &queue, t);
+                                si_clet += rplcjob(&queue, t, n[J_CLASS2 + CLET]);
+                                srvjob(e->job, CLET, &queue, t);
                                 a[J_CLASS1 + CLET]++;
                                 n[J_CLASS1 + CLET]++;
                                 n[J_CLASS2 + CLET]--;
@@ -290,7 +277,7 @@ int main(void)
                                 n_int++;
                             }
                             else { // accept job
-                                s[J_CLASS1 + CLET] += srvjob(e->job, CLET, &queue, t);
+                                srvjob(e->job, CLET, &queue, t);
                                 a[J_CLASS1 + CLET]++;
                                 n[J_CLASS1 + CLET]++;
                             }
@@ -298,12 +285,12 @@ int main(void)
                 else {                 /* process a class 2 arrival */
                     //fprintf(stderr, "class 2 arrival\n");
                     if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] >= S) {
-                        s[J_CLASS2 + CLOUD] += srvjob(e->job, CLOUD, &queue, t);
+                        srvjob(e->job, CLOUD, &queue, t);
                         a[J_CLASS2 + CLOUD]++;
                         n[J_CLASS2 + CLOUD]++;
                     }
                     else {
-                        s[J_CLASS2 + CLET] += srvjob(e->job, CLET, &queue, t);
+                        srvjob(e->job, CLET, &queue, t);
                         a[J_CLASS2 + CLET]++;
                         n[J_CLASS2 + CLET]++;
                     }
@@ -343,6 +330,11 @@ int main(void)
                 c[e->job.class + e->job.node]++;
                 if (t.current <= t_stop)
                     c_stop[e->job.class + e->job.node]++;
+
+                // populate s to print results to stdout
+                for (i = 0; i < 4; i++) 
+                    s[i] += e->job.service[i];
+                s_setup = e->job.setup;
 
                 // write data to outfile
                 dprintf(fd_srv, "%ld %f %f %f %f %f\n", e->job.id, 
@@ -395,21 +387,27 @@ int main(void)
         if (system(shell_cmd) == -1)
             handle_error("system() - executing sort command");
 
+
+
         /****************** print results *****************/
 
+        double service = 0.0;           /* total service        */
+        unsigned long completions = 0;  /* total completions    */
+        unsigned long compl_stop = 0;   /* total completions in [START, STOP]  */
+        double area_tot = 0.0;          /* time integrated # in the system */
+
         for (i = 0; i < 4; i++) {
-            //arrived += a[i];
             completions += c[i];
             compl_stop += c_stop[i];
             area_tot += area[i];
             service += s[i];
         }
         area_tot += area_setup;
-        service += (si_clet + si_cloud + s_setup);
+        service += s_setup;
         
 
-        printf("\nSimulation run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n\n", 
-                N, S, t_start, t_stop);
+        printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n\n", 
+                R, N, S, t_start, t_stop);
 
         printf("\nSystem statistics\n\n");
         printf("  Arrived jobs ....................... = %ld\n", arrived);
@@ -420,9 +418,9 @@ int main(void)
 
         printf("  Class 1 system response time ....... = %f\n", 
             (s[J_CLASS1 + CLET] + s[J_CLASS1 + CLOUD]) / 
-            (a[J_CLASS1 + CLET] + a[J_CLASS1 + CLOUD]));
+            (c[J_CLASS1 + CLET] + c[J_CLASS1 + CLOUD]));
         printf("  Class 2 system response time ....... = %f\n", 
-            (s[J_CLASS2 + CLET] + s[J_CLASS2 + CLOUD] + si_clet + si_cloud + s_setup) / 
+            (s[J_CLASS2 + CLET] + s[J_CLASS2 + CLOUD] + s_setup) / 
             (c[J_CLASS2 + CLET] + c[J_CLASS2 + CLOUD]));
         printf("  Global system response time ........ = %f\n", service / arrived);
         printf("  System mean population ............. = %f\n", area_tot / (t.current - t_start));
@@ -452,24 +450,24 @@ int main(void)
 
 
         printf("  Class 1 cloudlet response time ..... = %f\n", 
-            s[J_CLASS1 + CLET] / a[J_CLASS1 + CLET]);
+            s[J_CLASS1 + CLET] / c[J_CLASS1 + CLET]);
         printf("  Consistency check: M1CLET = 1/S = .. = %f (%.2f)\n", 
             a[J_CLASS1 + CLET] / s[J_CLASS1 + CLET], M1CLET);
 
         printf("  Class 1 cloud response time ........ = %f\n", 
-            s[J_CLASS1 + CLOUD] / a[J_CLASS1 + CLOUD]);
+            s[J_CLASS1 + CLOUD] / c[J_CLASS1 + CLOUD]);
         printf("  Consistency check: M1CLOUD = 1/S ... = %f (%.2f)\n", 
-            a[J_CLASS1 + CLOUD] / s[J_CLASS1 + CLOUD], M1CLOUD);
+            c[J_CLASS1 + CLOUD] / s[J_CLASS1 + CLOUD], M1CLOUD);
 
         printf("  Class 2 cloudlet response time ..... = %f\n", 
-            s[J_CLASS2 + CLET] / c[J_CLASS2 + CLET]);
+            (s[J_CLASS2 + CLET] - si_clet) / c[J_CLASS2 + CLET]);
         printf("  Consistency check: M2CLET = 1/S .... = %f (%.2f)\n", 
-            c[J_CLASS2 + CLET] / s[J_CLASS2 + CLET], M2CLET);
+            c[J_CLASS2 + CLET] / (s[J_CLASS2 + CLET] - si_clet), M2CLET);
 
         printf("  Class 2 cloud response time ........ = %f\n", 
-            (s[J_CLASS2 + CLOUD] + si_cloud) / c[J_CLASS2 + CLOUD]);
+            s[J_CLASS2 + CLOUD] / c[J_CLASS2 + CLOUD]);
         printf("  Consistency check: M2CLOUD = 1/S ... = %f (%.2f)\n", 
-            c[J_CLASS2 + CLOUD] / (s[J_CLASS2 + CLOUD] + si_cloud), M2CLOUD);
+            c[J_CLASS2 + CLOUD] / s[J_CLASS2 + CLOUD], M2CLOUD);
 
 
         printf("  Class 1 cloudlet mean population ... = %f\n", 
@@ -482,15 +480,15 @@ int main(void)
             area[J_CLASS2 + CLOUD] / (t.current - t_start));
 
         
-        printf("  Class 1 cloudlet arrivals ... = %ld\n", a[J_CLASS1 + CLET]);
-        printf("  Class 2 cloudlet arrivals ... = %ld\n", a[J_CLASS2 + CLET]); 
-        printf("  Class 1 cloud arrivals ...... = %ld\n", a[J_CLASS1 + CLOUD]);
-        printf("  Class 2 cloud arrivals ...... = %ld\n\n", a[J_CLASS2 + CLOUD]);
+        printf("  Class 1 cloudlet arrivals .......... = %ld\n", a[J_CLASS1 + CLET]);
+        printf("  Class 2 cloudlet arrivals .......... = %ld\n", a[J_CLASS2 + CLET]); 
+        printf("  Class 1 cloud arrivals ............. = %ld\n", a[J_CLASS1 + CLOUD]);
+        printf("  Class 2 cloud arrivals ............. = %ld\n\n", a[J_CLASS2 + CLOUD]);
 
-        printf("  Class 1 cloudlet completions ... = %ld\n", c[J_CLASS1 + CLET]);
-        printf("  Class 2 cloudlet completions ... = %ld\n", c[J_CLASS2 + CLET]); 
-        printf("  Class 1 cloud completions ...... = %ld\n", c[J_CLASS1 + CLOUD]);
-        printf("  Class 2 cloud completions ...... = %ld\n\n", c[J_CLASS2 + CLOUD]);
+        printf("  Class 1 cloudlet completions ....... = %ld\n", c[J_CLASS1 + CLET]);
+        printf("  Class 2 cloudlet completions ....... = %ld\n", c[J_CLASS2 + CLET]); 
+        printf("  Class 1 cloud completions .......... = %ld\n", c[J_CLASS1 + CLOUD]);
+        printf("  Class 2 cloud completions .......... = %ld\n\n", c[J_CLASS2 + CLOUD]);
     }
 
     return EXIT_SUCCESS;

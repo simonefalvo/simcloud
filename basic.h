@@ -26,17 +26,17 @@
 #define E_DEPART    1           /* departure event type             */
 #define E_SETUP     2           /* setup event type                 */
 #define E_IGNRVL    3           /* arrival to ignore event type     */
-#define YNGER_PLCY  0           /* yonger job preemption policy     */
-#define OLDER_PLCY  1           /* older  job preemption policy     */
+#define YNGER_PLCY  1           /* yonger job preemption policy     */
+#define OLDER_PLCY  0           /* older  job preemption policy     */
 
 
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 
-typedef struct {                /* simulation clock                  */
-    double current;             /*   current time                    */
-    double next;                /*   next (most imminent) event time */
+typedef struct {                /* simulation clock                 */
+    double current;             /*   current time                   */
+    double next;                /*   next upcoming event time       */
 } clock;
 
 struct job_t {
@@ -47,11 +47,10 @@ struct job_t {
     double setup;
 };
 
-struct event {
-    double time;
-    struct job_t job;
-    unsigned int type;
-    unsigned int n[4];
+struct event {                  /* event            */
+    double time;                /*   happening time */
+    struct job_t job;           /*   related job    */
+    unsigned int type;          /*   event type     */
 };
 
 
