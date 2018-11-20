@@ -3,10 +3,6 @@
 #include "basic.h"
 #include "stats_utils.h"
 
-#define ALPHA   0.05
-#define K       64 
-
-
 int main()
 {
     FILE *file_pop;

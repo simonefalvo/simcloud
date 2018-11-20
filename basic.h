@@ -5,10 +5,12 @@
 
 #define START       0.0         /* initial (open the door) time     */
 #define STOP        2000000.0   /* terminal (close the door) time   */
-#define N_JOBS      500000      /* number of jobs to be processed   */
+#define N_JOBS      1000000      /* number of jobs to be processed   */
 #define N           20          /* number of servers                */
-#define S           20          /* threshold                        */
-#define R           4           /* number of repolications          */
+#define S           10          /* threshold                        */
+#define R           1           /* number of repolications          */
+#define K           64          /* sample dimension                 */
+#define ALPHA       0.05        /* significance level               */
 #define L1          4.0         /* class 1 arrival rate             */
 #define L2          6.25        /* class 2 arrival rate             */
 #define M1CLET      0.45        /* class 1 cloudlet service rate    */
@@ -26,9 +28,12 @@
 #define E_DEPART    1           /* departure event type             */
 #define E_SETUP     2           /* setup event type                 */
 #define E_IGNRVL    3           /* arrival to ignore event type     */
-#define YNGER_PLCY  1           /* yonger job preemption policy     */
-#define OLDER_PLCY  0           /* older  job preemption policy     */
+#define EDF_PLCY    0           /* Earlest Deadline First preemption policy */
+#define LDF_PLCY    0           /* Latest Deadline First preemption policy  */
 
+#define OUTPUT  0
+#define DISPLAY 1
+#define AUDIT   0
 
 #define handle_error(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)

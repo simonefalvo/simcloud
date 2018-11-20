@@ -3,10 +3,6 @@
 #include "basic.h"
 #include "stats_utils.h"
 
-#define K       64 
-#define ALPHA   0.05
-
-
 int main()
 {
     FILE *file;
@@ -94,10 +90,12 @@ int main()
         if (!file)
             handle_error("opening data file");
 
-        // get batch size
+        // read completions
         if (fscanf(file, "-1 %ld %ld %ld %ld %ld\n",
             &c1_clet, &c2_clet, &c1_cloud, &c2_cloud, &c_setup) == EOF)
             handle_error("reading completions"); 
+
+        // compute batch sizes
         b = (c1_clet + c2_clet + c1_cloud + c2_cloud) / K;
         b1 = (c1_clet + c1_cloud) / K;
         b2 = (c2_clet + c2_cloud) / K;
@@ -110,8 +108,8 @@ int main()
         b_int = c_setup / K;
         max_id = b * K;
 
-        id = 0;
         // get data
+        id = 0;
         while (id < max_id - 1) {
             if (fscanf(file, "%ld %lf %lf %lf %lf %lf\n", &id,
                 &s1_clet, &s2_clet, &s1_cloud, &s2_cloud, &setup) == EOF)
@@ -125,7 +123,7 @@ int main()
                 n1++;
             }
             if (s2_clet || s2_cloud) {
-                s2[n2 / b2] += s2_cloud + s2_cloud;
+                s2[n2 / b2] += s2_cloud + s2_cloud + setup;
                 n2++;
             }
             if (s1_clet) {
@@ -176,7 +174,7 @@ int main()
         printf("\n  Replication %d results:\n", r);
         c = confint(s, K, ALPHA); 
         printf("system service time ......... = %f  +/- %f\n", c.mean, c.w);
-    //    printf("autocorralation between batches: %f\n", autocor(s, K, 1));
+        // printf("autocorralation between batches: %f\n", autocor(s, K, 1));
         c = confint(s1, K, ALPHA); 
         printf("class 1 service time ........ = %f  +/- %f\n", c.mean, c.w);
         c = confint(s2, K, ALPHA); 
