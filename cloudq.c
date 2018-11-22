@@ -76,7 +76,8 @@ unsigned int rmpos(unsigned int n)
 }
 
 
-double srvjob(struct job_t job, unsigned int node, struct queue_t *queue, clock t)
+double srvjob(struct job_t job, unsigned int node,
+                struct queue_t *queue, clock t)
 {
     double service = GetService(job.class, node);
     struct event *e = alloc_event();
@@ -389,8 +390,7 @@ int main(void)
             handle_error("closing output file");
         
         /* sort service output data */
-        sprintf(shell_cmd, 
-            "sort -n data/srvtemp.dat > data/service_%d.dat; rm data/srvtemp.dat", r);
+        sprintf(shell_cmd, "sort -n data/srvtemp.dat > data/service_%d.dat; rm data/srvtemp.dat", r);
         if (system(shell_cmd) == -1)
             handle_error("system() - executing sort command");
 
@@ -414,26 +414,27 @@ int main(void)
             service += s_setup;
             
 
-            printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n", 
-                    R, N, S, t_start, t_stop);
+            printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n", r, N, S, t_start, t_stop);
 
             printf("\nRATES\n");
             printf("  System arrival rate ................ = %f\n", 
                 arrived / (t_stop - t_start));
             printf("  System departure rate .............. = %f\n", 
                 compl_stop / (t_stop - t_start));
-            printf("  Cloudet class 1 Arrival rate ....... = %f\n", 
+            printf("  Cloudlet class 1 Arrival rate ...... = %f\n", 
                 a[J_CLASS1 + CLET] / (t_stop - t_start));
-            printf("  Cloudet class 2 Arrival rate ....... = %f\n", 
+            printf("  Cloudlet class 2 Arrival rate ...... = %f\n", 
                 a[J_CLASS2 + CLET] / (t_stop - t_start));
-            printf("  Cloudet (system) arrival rate ...... = %f\n", 
-                (a[J_CLASS1 + CLET] + a[J_CLASS2 + CLET]) / (t_stop - t_start));
+            printf("  Cloudlet arrival rate .............. = %f\n", 
+                (a[J_CLASS1 + CLET] + a[J_CLASS2 + CLET]) 
+                / (t_stop - t_start));
             printf("  Cloud class 1 Arrival rate ......... = %f\n", 
                 a[J_CLASS1 + CLOUD] / (t_stop - t_start));
             printf("  Cloud class 2 Arrival rate ......... = %f\n", 
                 a[J_CLASS2 + CLOUD] / (t_stop - t_start));
             printf("  Cloud Arrival rate ................. = %f\n", 
-                (a[J_CLASS1 + CLOUD] + a[J_CLASS2 + CLOUD]) / (t_stop - t_start));
+                (a[J_CLASS1 + CLOUD] + a[J_CLASS2 + CLOUD]) 
+                / (t_stop - t_start));
 
 
             printf("\nRESPONSE TIME\n");
@@ -461,7 +462,8 @@ int main(void)
                 s_setup / n_int, SETUP);
             printf("  Interrupted tasks response time .... = %f\n", 
                 (si_clet + s_setup + si_cloud) / n_int);
-            printf("  Global system response time ........ = %f\n", service / arrived);
+            printf("  Global system response time ........ = %f\n", 
+                service / arrived);
 
 
             printf("\nPOPULATION\n");
@@ -470,17 +472,20 @@ int main(void)
             printf("  Class 2 cloudlet mean population ... = %f\n", 
                 area[J_CLASS2 + CLET] / (t.current - t_start));
             printf("  Cloudlet mean population ........... = %f\n", 
-                (area[J_CLASS1 + CLET] + area[J_CLASS2 + CLET]) / (t.current - t_start));
+                (area[J_CLASS1 + CLET] + area[J_CLASS2 + CLET]) 
+                / (t.current - t_start));
             printf("  Class 1 cloud mean population ...... = %f\n", 
                 area[J_CLASS1 + CLOUD] / (t.current - t_start));
             printf("  Class 2 cloud mean population ...... = %f\n", 
                 area[J_CLASS2 + CLOUD] / (t.current - t_start));
             printf("  Cloud mean population .............. = %f\n", 
-                (area[J_CLASS1 + CLOUD] + area[J_CLASS2 + CLOUD]) / (t.current - t_start));
+                (area[J_CLASS1 + CLOUD] + area[J_CLASS2 + CLOUD]) 
+                / (t.current - t_start));
             printf("  System mean population ............. = %f\n",
                 area_tot / (t.current - t_start));
             printf("  Little's Law: arrival rate = N/S ... = %f (%.2f)\n", 
-                (area_tot / (t.current - t_start)) / (service / arrived), L1 + L2);
+                (area_tot / (t.current - t_start)) 
+                / (service / arrived), L1 + L2);
 
 
             printf("\nTHROUGHPUT\n");
@@ -489,17 +494,21 @@ int main(void)
             printf("  Class 2 cloudlet throughput ........ = %f\n", 
                 c_stop[J_CLASS2 + CLET] / (t_stop - t_start));
             printf("  Cloudlet throughput ................ = %f\n", 
-                (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS2 + CLET]) / (t_stop - t_start));
+                (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS2 + CLET]) 
+                / (t_stop - t_start));
             printf("  Class 1 cloud throughput ........... = %f\n", 
                 c_stop[J_CLASS1 + CLOUD] / (t_stop - t_start));
             printf("  Class 2 cloud throughput ........... = %f\n", 
                 c_stop[J_CLASS2 + CLOUD] / (t_stop - t_start));
             printf("  Cloud throughput ................... = %f\n", 
-                (c_stop[J_CLASS1 + CLOUD] + c_stop[J_CLASS2 + CLOUD]) / (t_stop - t_start));
+                (c_stop[J_CLASS1 + CLOUD] + c_stop[J_CLASS2 + CLOUD]) 
+                / (t_stop - t_start));
             printf("  Class 1 system throughput .......... = %f\n", 
-                (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS1 + CLOUD]) / (t_stop - t_start));
+                (c_stop[J_CLASS1 + CLET] + c_stop[J_CLASS1 + CLOUD]) 
+                / (t_stop - t_start));
             printf("  Class 2 system throughput .......... = %f\n",  
-                (c_stop[J_CLASS2 + CLET] + c_stop[J_CLASS2 + CLOUD]) / (t_stop - t_start));
+                (c_stop[J_CLASS2 + CLET] + c_stop[J_CLASS2 + CLOUD]) 
+                / (t_stop - t_start));
             printf("  Global system throughput ........... = %f\n", 
                 compl_stop / (t_stop - t_start));
             
@@ -507,23 +516,23 @@ int main(void)
             printf("\nROUTING\n");
             printf("  Total arrived jobs ................. = %9ld\n", arrived);
             printf("  Total processed jobs ............... = %9ld\n", completions);
-            printf("  Class 1 cloudlet arrivals .......... = %9ld (%7.4f %%)\n", 
+            printf("  Class 1 cloudlet arrivals .......... = %9ld (%7.2f %%)\n", 
                 a[J_CLASS1 + CLET], (double) a[J_CLASS1 + CLET] / arrived * 100);
-            printf("  Class 1 cloudlet completions ....... = %9ld (%7.4f %%)\n", 
+            printf("  Class 1 cloudlet completions ....... = %9ld (%7.2f %%)\n", 
                 c[J_CLASS1 + CLET], (double) c[J_CLASS1 + CLET] / arrived * 100);
-            printf("  Class 2 cloudlet arrivals .......... = %9ld (%7.4f %%)\n", 
+            printf("  Class 2 cloudlet arrivals .......... = %9ld (%7.2f %%)\n", 
                 a[J_CLASS2 + CLET], (double) a[J_CLASS2 + CLET] / arrived * 100); 
-            printf("  Class 2 cloudlet completions ....... = %9ld (%7.4f %%)\n", 
+            printf("  Class 2 cloudlet completions ....... = %9ld (%7.2f %%)\n", 
                 c[J_CLASS2 + CLET], (double) c[J_CLASS2 + CLET] / arrived * 100);
-            printf("  Class 1 cloud arrivals ............. = %9ld (%7.4f %%)\n", 
+            printf("  Class 1 cloud arrivals ............. = %9ld (%7.2f %%)\n", 
                 a[J_CLASS1 + CLOUD], (double) a[J_CLASS1 + CLOUD] / arrived * 100);
-            printf("  Class 1 cloud completions .......... = %9ld (%7.4f %%)\n", 
+            printf("  Class 1 cloud completions .......... = %9ld (%7.2f %%)\n", 
                 c[J_CLASS1 + CLOUD], (double) c[J_CLASS1 + CLOUD] / arrived * 100);
-            printf("  Class 2 cloud arrivals ............. = %9ld (%7.4f %%)\n", 
+            printf("  Class 2 cloud arrivals ............. = %9ld (%7.2f %%)\n", 
                 a[J_CLASS2 + CLOUD], (double) (a[J_CLASS2 + CLOUD] - n_int) / arrived * 100);
-            printf("  Class 2 cloud completions .......... = %9ld (%7.4f %%)\n", 
+            printf("  Class 2 cloud completions .......... = %9ld (%7.2f %%)\n", 
                 c[J_CLASS2 + CLOUD], (double) (c[J_CLASS2 + CLOUD] - n_int) / arrived * 100);
-            printf("  Interrupted jobs ................... = %9ld (%7.4f %%)\n",
+            printf("  Interrupted jobs ................... = %9ld (%7.2f %%)\n",
                 n_int, (double) n_int / arrived * 100);
             printf("  Cloudlet interrupted jobs percentage = %9.4f %%\n", (double) 
                 n_int / a[J_CLASS2 + CLET] * 100);

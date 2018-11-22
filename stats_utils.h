@@ -5,12 +5,12 @@
 #include <stdlib.h>
 #include "rvms.h"
 
-struct conf_int {
+struct confint_t {
 	double mean;
 	double w;
 };
 
-struct conf_int confint(double *batch_mean, long k, double alpha);
+struct confint_t confint(double *batch_mean, long k, double alpha);
 double autocor(double *data, size_t size, unsigned int lag);
 
 

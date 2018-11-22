@@ -29,7 +29,7 @@ int main()
     double x2cloud[K];
 
 
-    struct conf_int c;
+    struct confint_t c;
 
     for (r = 0; r < R; r++) {
 
@@ -86,7 +86,6 @@ int main()
         printf("\n  Replication %d results\n", r);
         c = confint(x, K, ALPHA); 
         printf("system throughput ......... = %lf  +/- %lf\n", c.mean, c.w);
-    //    printf("autocorralation between batches: %lf\n", autocor(s, K, 1));
         c = confint(x1, K, ALPHA); 
         printf("class 1 throughput ........ = %lf  +/- %lf\n", c.mean, c.w);
         c = confint(x2, K, ALPHA); 

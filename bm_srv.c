@@ -46,7 +46,6 @@ int main()
 
     long unsigned int i;
     unsigned int r;
-    unsigned int max_id;             // number of jobs to process
 
     // service batch arrays
     double s[K];
@@ -61,7 +60,7 @@ int main()
     double sint[K];
 
 
-    struct conf_int c;
+    struct confint_t c;
 
     for (r = 0; r < R; r++) {
 
@@ -106,15 +105,15 @@ int main()
         b1_cloud = c1_cloud / K;
         b2_cloud = c2_cloud / K;
         b_int = c_setup / K;
-        max_id = b * K;
+
+        if (!b1_cloud) {
+            fputs("\nWARNING: not enough class 1 jobs executed on the cloud. The value will not be reliable\n", stderr);
+            b1_cloud = 1;
+        }
 
         // get data
-        id = 0;
-        while (id < max_id - 1) {
-            if (fscanf(file, "%ld %lf %lf %lf %lf %lf\n", &id,
-                &s1_clet, &s2_clet, &s1_cloud, &s2_cloud, &setup) == EOF)
-                handle_error("file too short"); 
-            //fprintf(stderr, "%ld: %ld\n", id, id / b);
+        while (fscanf(file, "%ld %lf %lf %lf %lf %lf\n", &id,
+                &s1_clet, &s2_clet, &s1_cloud, &s2_cloud, &setup) != EOF) {
 
             s[id / b] += s1_clet + s2_clet + s1_cloud + s2_cloud + setup;
 
@@ -171,28 +170,39 @@ int main()
         }
 
         // print results 
-        printf("\n  Replication %d results:\n", r);
-        c = confint(s, K, ALPHA); 
-        printf("system service time ......... = %f  +/- %f\n", c.mean, c.w);
-        // printf("autocorralation between batches: %f\n", autocor(s, K, 1));
-        c = confint(s1, K, ALPHA); 
-        printf("class 1 service time ........ = %f  +/- %f\n", c.mean, c.w);
-        c = confint(s2, K, ALPHA); 
-        printf("class 2 service time ........ = %f  +/- %f\n", c.mean, c.w);
-        c = confint(s1clet, K, ALPHA); 
-        printf("class 1 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
-        c = confint(s2clet, K, ALPHA); 
-        printf("class 2 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
-        c = confint(sclet, K, ALPHA); 
-        printf("cloudlet service time ....... = %f  +/- %f\n", c.mean, c.w);
-        c = confint(s1cloud, K, ALPHA); 
-        printf("class 1 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
-        c = confint(s2cloud, K, ALPHA); 
-        printf("class 2 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
-        c = confint(scloud, K, ALPHA); 
-        printf("cloud service time .......... = %f  +/- %f\n", c.mean, c.w);
-        c = confint(sint, K, ALPHA); 
-        printf("interrupted jobs service time = %f  +/- %f\n", c.mean, c.w);
+        if (DISPLAY) {
+            printf("\n  Replication %d results:\n", r);
+            c = confint(s, K, ALPHA); 
+            printf("system service time ......... = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s, K, 1));
+            c = confint(s1, K, ALPHA); 
+            printf("class 1 service time ........ = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s1, K, 1));
+            c = confint(s2, K, ALPHA); 
+            printf("class 2 service time ........ = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s2, K, 1));
+            c = confint(s1clet, K, ALPHA); 
+            printf("class 1 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s1clet, K, 1));
+            c = confint(s2clet, K, ALPHA); 
+            printf("class 2 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s2clet, K, 1));
+            c = confint(sclet, K, ALPHA); 
+            printf("cloudlet service time ....... = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(sclet, K, 1));
+            c = confint(s1cloud, K, ALPHA); 
+            printf("class 1 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s1cloud, K, 1));
+            c = confint(s2cloud, K, ALPHA); 
+            printf("class 2 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(s2cloud, K, 1));
+            c = confint(scloud, K, ALPHA); 
+            printf("cloud service time .......... = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(scloud, K, 1));
+            c = confint(sint, K, ALPHA); 
+            printf("interrupted jobs service time = %f  +/- %f\n", c.mean, c.w);
+            printf("autocorralation between batches: %f\n", autocor(sint, K, 1));
+        }
     }
 
     return EXIT_SUCCESS;
