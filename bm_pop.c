@@ -129,7 +129,7 @@ int main()
             intpercent[i / b] += int_percent;
         }
 
-        // close the files
+        // close the input files
         if (fclose(file_pop) == EOF)
             handle_error("closing data file");
         if (fclose(file_int) == EOF)

@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "basic.h"
 #include "stats_utils.h"
 
@@ -7,6 +11,30 @@ int main()
 {
     FILE *file;
     char filename[32];
+
+    // output file names
+    char *fs = "data/s.dat";
+    char *fs1 = "data/s1.dat";
+    char *fs2 = "data/s2.dat";
+    char *fsclet = "data/sclet.dat";
+    char *fs1clet = "data/s1clet.dat";
+    char *fs2clet = "data/s2clet.dat";
+    char *fscloud = "data/scloud.dat";
+    char *fs1cloud = "data/s1cloud.dat";
+    char *fs2cloud = "data/s2cloud.dat";
+    char *fsintr = "data/sintr.dat";
+
+    // output file descriptors
+    int fd_s;
+    int fd_s1;
+    int fd_s2;
+    int fd_sclet;
+    int fd_s1clet;
+    int fd_s2clet;
+    int fd_scloud;
+    int fd_s1cloud;
+    int fd_s2cloud;
+    int fd_sintr;
 
     // temporary service variables
     long unsigned int id;
@@ -30,7 +58,7 @@ int main()
     unsigned long n2_clet;
     unsigned long n1_cloud;
     unsigned long n2_cloud;
-    unsigned long n_int;
+    unsigned long n_intr;
     
     // batch sizes 
     unsigned long b;
@@ -42,7 +70,7 @@ int main()
     unsigned long b_cloud;
     unsigned long b1_cloud;
     unsigned long b2_cloud;
-    unsigned long b_int;
+    unsigned long b_intr;
 
     long unsigned int i;
     unsigned int r;
@@ -57,10 +85,25 @@ int main()
     double scloud[K];
     double s1cloud[K];
     double s2cloud[K];
-    double sint[K];
-
+    double sintr[K];
 
     struct confint_t c;
+
+    // open output files
+    fd_s = open(fs, O_WRONLY | O_CREAT, 00744);
+    fd_s1 = open(fs1, O_WRONLY | O_CREAT, 00744);
+    fd_s2 = open(fs2, O_WRONLY | O_CREAT, 00744);
+    fd_sclet = open(fsclet, O_WRONLY | O_CREAT, 00744);
+    fd_s1clet = open(fs1clet, O_WRONLY | O_CREAT, 00744);
+    fd_s2clet = open(fs2clet, O_WRONLY | O_CREAT, 00744);
+    fd_scloud = open(fscloud, O_WRONLY | O_CREAT, 00744);
+    fd_s1cloud = open(fs1cloud, O_WRONLY | O_CREAT, 00744);
+    fd_s2cloud = open(fs2cloud, O_WRONLY | O_CREAT, 00744);
+    fd_sintr = open(fsintr, O_WRONLY | O_CREAT, 00744);
+    if (fd_sintr == -1 || fd_s == -1 || fd_s1 == -1 || fd_s2 == -1 || 
+        fd_sclet == -1 || fd_s1clet == -1 || fd_s2clet == -1 ||
+        fd_scloud == -1 || fd_s1cloud == -1 || fd_s2cloud == -1)
+        handle_error("opening an output file");
 
     for (r = 0; r < R; r++) {
 
@@ -74,14 +117,14 @@ int main()
         memset(scloud, 0, K * sizeof(double));
         memset(s1cloud, 0, K * sizeof(double));
         memset(s2cloud, 0, K * sizeof(double));
-        memset(sint, 0, K * sizeof(double));
+        memset(sintr, 0, K * sizeof(double));
         n1 = 0;
         n2 = 0;
         n1_clet = 0;
         n2_clet = 0;
         n1_cloud = 0;
         n2_cloud = 0;
-        n_int = 0;
+        n_intr = 0;
 
         // open the file
         sprintf(filename, "data/service_%d.dat", r);
@@ -104,7 +147,7 @@ int main()
         b_cloud = (c1_cloud + c2_cloud) / K;
         b1_cloud = c1_cloud / K;
         b2_cloud = c2_cloud / K;
-        b_int = c_setup / K;
+        b_intr = c_setup / K;
 
         if (!b1_cloud) {
             fputs("\nWARNING: not enough class 1 jobs executed on the cloud. The value will not be reliable\n", stderr);
@@ -146,8 +189,8 @@ int main()
                 n2_cloud++;
             }
             if (setup) {
-                sint[n_int / b_int] += s2_clet + s2_cloud + setup;
-                n_int++;
+                sintr[n_intr / b_intr] += s2_clet + s2_cloud + setup;
+                n_intr++;
             }
         }
 
@@ -166,44 +209,74 @@ int main()
             s1cloud[i] /= b1_cloud;
             s2cloud[i] /= b2_cloud;
             scloud[i] /= b_cloud;
-            sint[i] /= b_int;
+            sintr[i] /= b_intr;
         }
 
         // print results 
-        if (DISPLAY) {
-            printf("\n  Replication %d results:\n", r);
-            c = confint(s, K, ALPHA); 
-            printf("system service time ......... = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s, K, 1));
-            c = confint(s1, K, ALPHA); 
-            printf("class 1 service time ........ = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s1, K, 1));
-            c = confint(s2, K, ALPHA); 
-            printf("class 2 service time ........ = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s2, K, 1));
-            c = confint(s1clet, K, ALPHA); 
-            printf("class 1 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s1clet, K, 1));
-            c = confint(s2clet, K, ALPHA); 
-            printf("class 2 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s2clet, K, 1));
-            c = confint(sclet, K, ALPHA); 
-            printf("cloudlet service time ....... = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(sclet, K, 1));
-            c = confint(s1cloud, K, ALPHA); 
-            printf("class 1 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s1cloud, K, 1));
-            c = confint(s2cloud, K, ALPHA); 
-            printf("class 2 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(s2cloud, K, 1));
-            c = confint(scloud, K, ALPHA); 
-            printf("cloud service time .......... = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(scloud, K, 1));
-            c = confint(sint, K, ALPHA); 
-            printf("interrupted jobs service time = %f  +/- %f\n", c.mean, c.w);
-            printf("autocorralation between batches: %f\n", autocor(sint, K, 1));
-        }
+        printf("\n  Replication %d results:\n", r);
+        c = confint(s, K, ALPHA); 
+        dprintf(fd_s, "%f %f\n", c.mean, c.w);
+        printf("system service time ......... = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s, K, 1));
+        c = confint(s1, K, ALPHA); 
+        dprintf(fd_s1, "%f %f\n", c.mean, c.w);
+        printf("class 1 service time ........ = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s1, K, 1));
+        c = confint(s2, K, ALPHA); 
+        dprintf(fd_s2, "%f %f\n", c.mean, c.w);
+        printf("class 2 service time ........ = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s2, K, 1));
+        c = confint(s1clet, K, ALPHA); 
+        dprintf(fd_s1clet, "%f %f\n", c.mean, c.w);
+        printf("class 1 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s1clet, K, 1));
+        c = confint(s2clet, K, ALPHA); 
+        dprintf(fd_s2clet, "%f %f\n", c.mean, c.w);
+        printf("class 2 cloudlet service time = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s2clet, K, 1));
+        c = confint(sclet, K, ALPHA); 
+        dprintf(fd_sclet, "%f %f\n", c.mean, c.w);
+        printf("cloudlet service time ....... = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(sclet, K, 1));
+        c = confint(s1cloud, K, ALPHA); 
+        dprintf(fd_s1cloud, "%f %f\n", c.mean, c.w);
+        printf("class 1 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s1cloud, K, 1));
+        c = confint(s2cloud, K, ALPHA); 
+        dprintf(fd_s2cloud, "%f %f\n", c.mean, c.w);
+        printf("class 2 cloud service time .. = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(s2cloud, K, 1));
+        c = confint(scloud, K, ALPHA); 
+        dprintf(fd_scloud, "%f %f\n", c.mean, c.w);
+        printf("cloud service time .......... = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(scloud, K, 1));
+        c = confint(sintr, K, ALPHA); 
+        dprintf(fd_sintr, "%f %f\n", c.mean, c.w);
+        printf("interrupted jobs service time = %f  +/- %f\n", c.mean, c.w);
+        printf("autocorralation between batches: %f\n", autocor(sintr, K, 1));
     }
+
+    // close output file
+    if (close(fd_s) == -1)
+        handle_error("closing output file");
+    if (close(fd_s1) == -1)
+        handle_error("closing output file");
+    if (close(fd_s2) == -1)
+        handle_error("closing output file");
+    if (close(fd_sclet) == -1)
+        handle_error("closing output file");
+    if (close(fd_s1clet) == -1)
+        handle_error("closing output file");
+    if (close(fd_s2clet) == -1)
+        handle_error("closing output file");
+    if (close(fd_scloud) == -1)
+        handle_error("closing output file");
+    if (close(fd_s1cloud) == -1)
+        handle_error("closing output file");
+    if (close(fd_s2cloud) == -1)
+        handle_error("closing output file");
+    if (close(fd_sintr) == -1)
+        handle_error("closing output file");
 
     return EXIT_SUCCESS;
 }

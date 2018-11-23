@@ -5,7 +5,7 @@
 
 #define START       0.0         /* initial (open the door) time     */
 #define STOP        2000000.0   /* terminal (close the door) time   */
-#define N_JOBS      8192        /* number of jobs to be processed   */
+#define N_JOBS      1000000     /* number of jobs to be processed   */
 #define N           20          /* number of servers                */
 #define S           20          /* threshold                        */
 #define R           10          /* number of repolications          */
@@ -31,7 +31,7 @@
 #define EDF_PLCY    0           /* Earlest Deadline First preemption policy */
 #define LDF_PLCY    0           /* Latest Deadline First preemption policy  */
 
-#define OUTPUT  1
+#define OUTPUT  0
 #define DISPLAY 1
 #define AUDIT   0
 

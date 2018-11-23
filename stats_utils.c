@@ -37,7 +37,7 @@ double autocor(double *data, size_t size, unsigned int j)
 }
 
 
-struct confint_t confint(double *sample, long n, double alpha)
+struct confint_t confint(double *sample, long size, double alpha)
 {
 	struct confint_t c;
 	double sum = 0.0;
@@ -47,18 +47,19 @@ struct confint_t confint(double *sample, long n, double alpha)
     double t;
 	unsigned int i, j;
 	
-	for (i = 0; i < n; i++) {
+    // Welford's one pass Alg
+	for (i = 0; i < size; i++) {
         j = i + 1;
         diff = sample[i] - mean;
         sum += diff * diff * (j - 1.0) / j;
         mean += diff / j;
     }
-    stdev = sqrt(sum / n);
+    stdev = sqrt(sum / size);
 
-	t = idfStudent(n - 1, 1 - alpha/2);
+	t = idfStudent(size - 1, 1 - alpha/2);
 
 	c.mean = mean;
-	c.w = t * stdev / sqrt(n - 1);
+	c.w = t * stdev / sqrt(size - 1);
     
 	return c;  
 }
