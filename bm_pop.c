@@ -21,6 +21,7 @@ int main()
     char *fncloud = "data/ncloud.dat";
     char *fn1cloud = "data/n1cloud.dat";
     char *fn2cloud = "data/n2cloud.dat";
+    char *fnsetup = "data/nsetup.dat";
     char *fintperc = "data/intperc.dat";
 
     // output file descriptors
@@ -33,6 +34,7 @@ int main()
     int fd_ncloud;
     int fd_n1cloud;
     int fd_n2cloud;
+    int fd_nsetup;
     int fd_intperc;
 
     // temporary population variables
@@ -73,10 +75,12 @@ int main()
     fd_ncloud = open(fncloud, O_WRONLY | O_CREAT, 00744);
     fd_n1cloud = open(fn1cloud, O_WRONLY | O_CREAT, 00744);
     fd_n2cloud = open(fn2cloud, O_WRONLY | O_CREAT, 00744);
+    fd_nsetup = open(fnsetup, O_WRONLY | O_CREAT, 00744);
     fd_intperc = open(fintperc, O_WRONLY | O_CREAT, 00744);
-    if (fd_intperc == -1 || fd_n == -1 || fd_n1 == -1 || fd_n2 == -1 || 
+    if (fd_n == -1 || fd_n1 == -1 || fd_n2 == -1 || 
         fd_nclet == -1 || fd_n1clet == -1 || fd_n2clet == -1 ||
-        fd_ncloud == -1 || fd_n1cloud == -1 || fd_n2cloud == -1)
+        fd_ncloud == -1 || fd_n1cloud == -1 || fd_n2cloud == -1 ||
+        fd_nsetup == -1 || fd_intperc == -1) 
         handle_error("opening an output file");
 
     for (r = 0; r < R; r++) {
@@ -118,7 +122,7 @@ int main()
 
             n[i / b] += n1_clet + n2_clet + n1_cloud + n2_cloud + n_setup;
             n1[i / b] += n1_clet + n1_cloud;
-            n2[i / b] += n2_clet + n2_cloud;
+            n2[i / b] += n2_clet + n2_cloud + n_setup;
             n1clet[i / b] += n1_clet;
             n2clet[i / b] += n2_clet;
             nclet[i / b] += n1_clet + n2_clet;
@@ -152,35 +156,47 @@ int main()
 
         // print results 
         printf("\n  Replication %d results:\n", r);
+
         c = confint(n, K, ALPHA); 
         dprintf(fd_n, "%f %f\n", c.mean, c.w);
         printf("system mean population ......... = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(n1, K, ALPHA); 
         dprintf(fd_n1, "%f %f\n", c.mean, c.w);
         printf("class 1 mean population ........ = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(n2, K, ALPHA); 
         dprintf(fd_n2, "%f %f\n", c.mean, c.w);
         printf("class 2 mean population ........ = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(n1clet, K, ALPHA); 
         dprintf(fd_n1clet, "%f %f\n", c.mean, c.w);
         printf("class 1 cloudlet mean population = %lf  +/- %lf\n", c.mean, c.w);
+        
         c = confint(n2clet, K, ALPHA); 
         dprintf(fd_n2clet, "%f %f\n", c.mean, c.w);
         printf("class 2 cloudlet mean population = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(nclet, K, ALPHA); 
         dprintf(fd_nclet, "%f %f\n", c.mean, c.w);
         printf("cloudlet mean population ....... = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(n1cloud, K, ALPHA); 
         dprintf(fd_n1cloud, "%f %f\n", c.mean, c.w);
         printf("class 1 cloud mean population .. = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(n2cloud, K, ALPHA); 
         dprintf(fd_n2cloud, "%f %f\n", c.mean, c.w);
         printf("class 2 cloud mean population .. = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(ncloud, K, ALPHA); 
         dprintf(fd_ncloud, "%f %f\n", c.mean, c.w);
         printf("cloud mean population .......... = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(nsetup, K, ALPHA); 
+        dprintf(fd_nsetup, "%f %f\n", c.mean, c.w);
         printf("setup mean population .......... = %lf  +/- %lf\n", c.mean, c.w);
+
         c = confint(intpercent, K, ALPHA); 
         dprintf(fd_intperc, "%f %f\n", c.mean, c.w);
         printf("interrupted job percantage ..... = %lf  +/- %lf\n", c.mean, c.w);

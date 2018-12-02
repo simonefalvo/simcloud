@@ -71,7 +71,6 @@ unsigned int rmpos(unsigned int n)
         SelectStream(7);
         x = Uniform(1, n);
     }
-    //fprintf(stderr, "n2=%d, pos=%d\n", n, x);
     return x;
 }
 
@@ -150,19 +149,19 @@ int main(void)
     unsigned long a[4];         /* local arrivals   */
     unsigned long c[4];         /* local completions                    */
     unsigned long c_stop[4];    /* local completions in [START, STOP]   */ 
-    unsigned long n_int;        /* total interrupted jobs   */
+    unsigned long n_intr;        /* interruptions counter    */
 
     double s[4];                /* local service time   */
     double si_clet;             /* interrupted jobs cloudlet service time   */
     double si_cloud;            /* interrupted jobs cloud service time      */
     double s_setup;             /* interruptes jobs setup time              */
 
-    double area[4];             /* local area of jobs in time */
-    double area_setup;          /* area of setup jobs in time */
+    double area[4];             /* local area of jobs in time   */
+    double area_setup;          /* area of setup jobs in time   */
 
-    double t_start;     /* start time of the simulation                         */ 
-    double t_stop;      /* stop time of the simulation                          */
-    double elapsed;     /* elapsed time from the beginning of the simulation    */
+    double t_start;             /* start time of the simulation     */ 
+    double t_stop;              /* stop time of the simulation      */
+    double elapsed;             /* elapsed time from the beginning  */
 
     long seed;
 
@@ -217,7 +216,7 @@ int main(void)
             area[i] = 0.0;
         }
         n_setup = 0;           
-        n_int = 0;            
+        n_intr = 0;            
         arrived = 0;         
         si_clet = 0.0;           
         si_cloud = 0.0;          
@@ -275,7 +274,7 @@ int main(void)
                                 n[J_CLASS1 + CLET]++;
                                 n[J_CLASS2 + CLET]--;
                                 n_setup++;
-                                n_int++;
+                                n_intr++;
                             }
                             else { // accept job
                                 srvjob(e->job, CLET, &queue, t);
@@ -359,7 +358,8 @@ int main(void)
                         area[J_CLASS1 + CLOUD] / elapsed,
                         area[J_CLASS2 + CLOUD] / elapsed, 
                         area_setup / elapsed);
-                    dprintf(fd_int, "%f\n", (double) n_int / a[J_CLASS2 + CLET]);
+                    dprintf(fd_int, "%f\n", 
+                        (double) n_intr / a[J_CLASS2 + CLET]);
                 }
                     
                 free(e);
@@ -376,7 +376,7 @@ int main(void)
             dprintf(fd_srv, "%d %ld %ld %ld %ld %ld\n", -1,
                     c[J_CLASS1 + CLET], c[J_CLASS2 + CLET], 
                     c[J_CLASS1 + CLOUD], c[J_CLASS2 + CLOUD],
-                    n_int);
+                    n_intr);
         }
 
         // close output files
@@ -389,19 +389,20 @@ int main(void)
         if (close(fd_int) == -1)
             handle_error("closing output file");
         
-        /* sort service output data */
-        sprintf(shell_cmd, "sort -n data/srvtemp.dat > data/service_%d.dat; rm data/srvtemp.dat", r);
+        // sort service output data 
+        sprintf(shell_cmd, 
+            "sort -n data/srvtemp.dat > data/service_%d.dat; rm data/srvtemp.dat", r);
         if (system(shell_cmd) == -1)
             handle_error("system() - executing sort command");
 
 
 
-        /****************** print results *****************/
+        /************************** print results *****************************/
 
         if (DISPLAY) {
-            double service = 0.0;           /* total service        */
-            unsigned long completions = 0;  /* total completions    */
-            unsigned long compl_stop = 0;   /* total completions in [START, STOP]  */
+            double service = 0.0;           /* total service      */
+            unsigned long completions = 0;  /* total completions  */
+            unsigned long compl_stop = 0;   /* total completions in [START, STOP] */
             double area_tot = 0.0;          /* time integrated # in the system */
 
             for (i = 0; i < 4; i++) {
@@ -414,7 +415,8 @@ int main(void)
             service += s_setup;
             
 
-            printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n", r, N, S, t_start, t_stop);
+            printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n",
+                r, N, S, t_start, t_stop);
 
             printf("\nRATES\n");
             printf("  System arrival rate ................ = %f\n", 
@@ -459,9 +461,9 @@ int main(void)
                 (s[J_CLASS2 + CLET] + s[J_CLASS2 + CLOUD] + s_setup) / 
                 (c[J_CLASS2 + CLET] + c[J_CLASS2 + CLOUD]));
             printf("  Setup time ......................... = %f (%.2f)\n", 
-                s_setup / n_int, SETUP);
+                s_setup / n_intr, SETUP);
             printf("  Interrupted tasks response time .... = %f\n", 
-                (si_clet + s_setup + si_cloud) / n_int);
+                (si_clet + s_setup + si_cloud) / n_intr);
             printf("  Global system response time ........ = %f\n", 
                 service / arrived);
 
@@ -529,13 +531,16 @@ int main(void)
             printf("  Class 1 cloud completions .......... = %9ld (%7.2f %%)\n", 
                 c[J_CLASS1 + CLOUD], (double) c[J_CLASS1 + CLOUD] / arrived * 100);
             printf("  Class 2 cloud arrivals ............. = %9ld (%7.2f %%)\n", 
-                a[J_CLASS2 + CLOUD], (double) (a[J_CLASS2 + CLOUD] - n_int) / arrived * 100);
+                a[J_CLASS2 + CLOUD], (double) (a[J_CLASS2 + CLOUD] - n_intr) / arrived * 100);
             printf("  Class 2 cloud completions .......... = %9ld (%7.2f %%)\n", 
-                c[J_CLASS2 + CLOUD], (double) (c[J_CLASS2 + CLOUD] - n_int) / arrived * 100);
+                c[J_CLASS2 + CLOUD], (double) (c[J_CLASS2 + CLOUD] - n_intr) / arrived * 100);
             printf("  Interrupted jobs ................... = %9ld (%7.2f %%)\n",
-                n_int, (double) n_int / arrived * 100);
+                n_intr, (double) n_intr / arrived * 100);
+            printf("  Class 2 Interrupted jobs ........... = %9ld (%7.2f %%)\n",
+                n_intr, (double) n_intr /
+                (a[J_CLASS2 + CLET] + a[J_CLASS2 + CLOUD]) * 100);
             printf("  Cloudlet interrupted jobs percentage = %9.4f %%\n", (double) 
-                n_int / a[J_CLASS2 + CLET] * 100);
+                n_intr / a[J_CLASS2 + CLET] * 100);
         }
     }
 
