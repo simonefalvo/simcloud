@@ -165,7 +165,7 @@ int main()
                 n1++;
             }
             if (s2_clet || s2_cloud) {
-                s2[n2 / b2] += s2_cloud + s2_cloud + setup;
+                s2[n2 / b2] += s2_clet + s2_cloud + setup;
                 n2++;
             }
             if (s1_clet) {

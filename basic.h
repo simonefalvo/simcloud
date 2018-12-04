@@ -5,9 +5,9 @@
 
 #define START       0.0         /* initial (open the door) time     */
 #define STOP        2000000.0   /* terminal (close the door) time   */
-#define N_JOBS      100000     /* number of jobs to be processed   */
+#define N_JOBS      500000      /* number of jobs to be processed   */
 #define N           20          /* number of servers                */
-#define S           5          /* threshold                        */
+#define S           20          /* threshold                        */
 #define R           10          /* number of repolications          */
 #define K           64          /* sample dimension                 */
 #define ALPHA       0.05        /* significance level               */
