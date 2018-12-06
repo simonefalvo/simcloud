@@ -150,7 +150,8 @@ int main()
         b_intr = c_setup / K;
 
         if (!b1_cloud) {
-            fputs("\nWARNING: not enough class 1 jobs executed on the cloud. The value will not be reliable\n", stderr);
+            fputs("\nWARNING: not enough class 1 jobs executed on the cloud. "
+                    "The value will not be reliable\n", stderr);
             b1_cloud = 1;
         }
 

@@ -11,54 +11,10 @@
 #include "basic.h"
 #include "queue.h"
 #include "eventq.h"
-#include "rvms.h"
+#include "dgen.h"
 
 
-double GetArrival(unsigned int *j)
-{
-	const double mean[2] = {1/L1, 1/L2};	
-	static double arrival[2] = {START, START};
-	static int init = 1;
-	double temp;
-	
-	if (init) {
-		SelectStream(0);
-		arrival[0] += Exponential(mean[0]);
-		SelectStream(1);
-		arrival[1] += Exponential(mean[1]);
-		init=0;
-	}
-
-	if (arrival[0] <= arrival[1])
-		*j = 0;
-	else
-		*j = 1;
-
-	temp = arrival[*j];
-	SelectStream(*j);
-	arrival[*j] += Exponential(mean[*j]);
-
-	return temp;
-}
-
-
-
-double GetService(int j, int n)
-{
-	const double mean[4] = {1/M1CLET, 1/M2CLET,
-                            1/M1CLOUD, 1/M2CLOUD};	
-    SelectStream(j + n + 2);
-    return Exponential(mean[j + n]);
-}
-
-
-
-double GetSetup()
-{
-    SelectStream(6);
-    return Exponential(SETUP);
-}
-
+/* return the position of the event to be removed */
 unsigned int rmpos(unsigned int n)
 {
     unsigned int x;
@@ -67,7 +23,7 @@ unsigned int rmpos(unsigned int n)
         x = n;
     else if (EDF_PLCY)
         x = 1;
-    else {
+    else { // random removal
         SelectStream(7);
         x = Uniform(1, n);
     }
@@ -98,7 +54,7 @@ double rplcjob(struct queue_t *queue, clock t, unsigned int n)
 {
     double service;
     double left;                        // remaining service time
-    double setup = GetSetup();
+    double setup = GetService(J_CLASS2, SETUP);
     struct event *temp = alloc_event();
     struct job_t *job = &temp->job;
     struct event *e = NULL;
@@ -114,7 +70,7 @@ double rplcjob(struct queue_t *queue, clock t, unsigned int n)
     e->type = E_SETUP;
 
     job = &e->job;
-    job->setup = setup;
+    job->service[J_CLASS2 + SETUP] = setup;
     service = job->service[J_CLASS2 + CLET];
     job->service[J_CLASS2 + CLET] -= left;
 
@@ -142,22 +98,19 @@ int main(void)
     clock t;                    /* simulation clock */
     unsigned int jobclass;      /* class of the current job */ 
     
-    unsigned long n[4];         /* local population */
-    unsigned long n_setup;      /* setup population */
+    unsigned long n[5];         /* local population */
 
     unsigned long arrived;      /* global arrivals  */
-    unsigned long a[4];         /* local arrivals   */
-    unsigned long c[4];         /* local completions                    */
-    unsigned long c_stop[4];    /* local completions in [START, STOP]   */ 
+    unsigned long a[5];         /* local arrivals   */
+    unsigned long c[5];         /* local completions                    */
+    unsigned long c_stop[5];    /* local completions in [START, STOP]   */ 
     unsigned long n_intr;       /* interruptions counter    */
 
-    double s[4];                /* local service time   */
+    double s[5];                /* local service time   */
     double si_clet;             /* interrupted jobs cloudlet service time   */
     double si_cloud;            /* interrupted jobs cloud service time      */
-    double s_setup;             /* interruptes jobs setup time              */
 
-    double area[4];             /* local area of jobs in time   */
-    double area_setup;          /* area of setup jobs in time   */
+    double area[5];             /* local area of jobs in time   */
 
     double t_start;             /* start time of the simulation     */ 
     double t_stop;              /* stop time of the simulation      */
@@ -167,7 +120,6 @@ int main(void)
 
     unsigned int i;      // array index
     unsigned int r;      // replication index
-    // char *node;
 
     // output file descriptors
     int fd_srv;
@@ -207,7 +159,7 @@ int main(void)
             handle_error("opening output file");
 
         // init variables 
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < 5; i++) {
             n[i] = 0;       
             a[i] = 0;   
             c[i] = 0;       
@@ -215,13 +167,10 @@ int main(void)
             s[i] = 0.0; 
             area[i] = 0.0;
         }
-        n_setup = 0;           
         n_intr = 0;            
         arrived = 0;         
         si_clet = 0.0;           
         si_cloud = 0.0;          
-        s_setup = 0.0;           
-        area_setup = 0.0;
         t_start = t.current;
         t_stop = INFINITY;
 
@@ -241,9 +190,8 @@ int main(void)
             e = dequeue_event(&queue);
             t.next = e->time;                               /* next event time */
             
-            for (i = 0; i < 4; i++)                         /* update integral  */
+            for (i = 0; i < 5; i++)                         /* update integral  */
                 area[i] += (t.next - t.current) * n[i];
-            area_setup += (t.next - t.current) * n_setup;
 
             t.current = t.next;                             /* advance the clock */
 
@@ -256,7 +204,6 @@ int main(void)
                 arrived++;
 
                 if (e->job.class == J_CLASS1) {            /* process a class 1 arrival */
-                    //fprintf(stderr, "class 1 arrival\n");
                     if (n[J_CLASS1 + CLET] == N) {
                         srvjob(e->job, CLOUD, &queue, t);
                         a[J_CLASS1 + CLOUD]++;
@@ -273,7 +220,8 @@ int main(void)
                                 a[J_CLASS1 + CLET]++;
                                 n[J_CLASS1 + CLET]++;
                                 n[J_CLASS2 + CLET]--;
-                                n_setup++;
+                                a[J_CLASS2 + SETUP]++;
+                                n[J_CLASS2 + SETUP]++;
                                 n_intr++;
                             }
                             else { // accept job
@@ -283,7 +231,6 @@ int main(void)
                             }
                 }
                 else {                 /* process a class 2 arrival */
-                    //fprintf(stderr, "class 2 arrival\n");
                     if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] >= S) {
                         srvjob(e->job, CLOUD, &queue, t);
                         a[J_CLASS2 + CLOUD]++;
@@ -298,7 +245,6 @@ int main(void)
                 e->time = GetArrival(&jobclass);       /* set next arrival time */
                 e->job.class = jobclass;               /* set next arrival class */
                 
-                //if (e->time <= STOP) 
                 if (arrived >= N_JOBS) {
                     e->type = E_IGNRVL; // arrival to not process
                     t_stop = t.current; 
@@ -310,7 +256,7 @@ int main(void)
            case E_IGNRVL:
                 if (n[J_CLASS1 + CLET] + n[J_CLASS2 + CLET] + 
                     n[J_CLASS1 + CLOUD] + n[J_CLASS2 + CLOUD] + 
-                    n_setup) {      // there are jobs to be processed
+                    n[J_CLASS2 + SETUP]) {      // there are jobs to be processed
                     e->time = GetArrival(&jobclass); /* set next arrival to ignore */
                     enqueue_event(e, &queue);
                 }
@@ -321,12 +267,11 @@ int main(void)
                 si_cloud += srvjob(e->job, CLOUD, &queue, t);
                 a[J_CLASS2 + CLOUD]++;
                 n[J_CLASS2 + CLOUD]++;
-                n_setup--;
+                n[J_CLASS2 + SETUP]--;
+                c[J_CLASS2 + SETUP]++;
                 break;
 
             case E_DEPART:                /* process a departure */
-                //node = e->node == CLET ? "cloudlet" : "cloud";
-                //fprintf(stderr, "class %d departure from %s\n", e->job + 1, node);
                 n[e->job.class + e->job.node]--;
                 c[e->job.class + e->job.node]++;
                 if (t.current <= t_stop)
@@ -334,9 +279,8 @@ int main(void)
 
                 // populate s to print results to stdout
                 if (DISPLAY) {
-                    for (i = 0; i < 4; i++) 
+                    for (i = 0; i < 5; i++) 
                         s[i] += e->job.service[i];
-                    s_setup += e->job.setup;
                 }
 
                 // write data to outfile
@@ -345,7 +289,8 @@ int main(void)
                         e->job.service[J_CLASS1 + CLET], 
                         e->job.service[J_CLASS2 + CLET], 
                         e->job.service[J_CLASS1 + CLOUD], 
-                        e->job.service[J_CLASS2 + CLOUD], e->job.setup);
+                        e->job.service[J_CLASS2 + CLOUD],
+                        e->job.service[J_CLASS2 + SETUP]);
                     elapsed = t.current - t_start;
                     dprintf(fd_thr, "%f %f %f %f\n", 
                         c[J_CLASS1 + CLET] / elapsed, 
@@ -357,7 +302,7 @@ int main(void)
                         area[J_CLASS2 + CLET] / elapsed, 
                         area[J_CLASS1 + CLOUD] / elapsed,
                         area[J_CLASS2 + CLOUD] / elapsed, 
-                        area_setup / elapsed);
+                        area[J_CLASS2 + SETUP] / elapsed);
 
                     unsigned long aj2 = a[J_CLASS2 + CLET] + 
                                         a[J_CLASS2 + CLOUD] - n_intr;
@@ -381,7 +326,7 @@ int main(void)
             dprintf(fd_srv, "%d %ld %ld %ld %ld %ld\n", -1,
                     c[J_CLASS1 + CLET], c[J_CLASS2 + CLET], 
                     c[J_CLASS1 + CLOUD], c[J_CLASS2 + CLOUD],
-                    n_intr);
+                    c[J_CLASS2 + SETUP]);
         }
 
         // close output files
@@ -395,8 +340,8 @@ int main(void)
             handle_error("closing output file");
         
         // sort service output data 
-        sprintf(shell_cmd, 
-            "sort -n data/srvtemp.dat > data/service_%d.dat; rm data/srvtemp.dat", r);
+        sprintf(shell_cmd, "sort -n data/srvtemp.dat > data/service_%d.dat; "
+                           "rm data/srvtemp.dat", r);
         if (system(shell_cmd) == -1)
             handle_error("system() - executing sort command");
 
@@ -410,18 +355,16 @@ int main(void)
             unsigned long compl_stop = 0;   /* total completions in [START, STOP] */
             double area_tot = 0.0;          /* time integrated # in the system */
 
-            for (i = 0; i < 4; i++) {
+            for (i = 0; i < 5; i++) {
                 completions += c[i];
                 compl_stop += c_stop[i];
                 area_tot += area[i];
                 service += s[i];
             }
-            area_tot += area_setup;
-            service += s_setup;
             
 
-            printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, t_stop=%.2f\n",
-                r, N, S, t_start, t_stop);
+            printf("\nSimulation number %d run with N=%d, S=%d, t_start=%.2f, "
+                   "t_stop=%.2f\n", r, N, S, t_start, t_stop);
 
             printf("\nRATES\n");
             printf("  System arrival rate ................ = %f\n", 
@@ -465,12 +408,12 @@ int main(void)
                 (s[J_CLASS1 + CLET] + s[J_CLASS1 + CLOUD]) / 
                 (c[J_CLASS1 + CLET] + c[J_CLASS1 + CLOUD]));
             printf("  Class 2 system response time ....... = %f\n", 
-                (s[J_CLASS2 + CLET] + s[J_CLASS2 + CLOUD] + s_setup) / 
+                (s[J_CLASS2 + CLET] + s[J_CLASS2 + CLOUD] + s[J_CLASS2 + SETUP]) / 
                 (c[J_CLASS2 + CLET] + c[J_CLASS2 + CLOUD]));
             printf("  Setup time ......................... = %f (%.2f)\n", 
-                s_setup / n_intr, SETUP);
+                s[J_CLASS2 + SETUP] / n_intr, 1 / MSETUP);
             printf("  Interrupted tasks response time .... = %f\n", 
-                (si_clet + s_setup + si_cloud) / n_intr);
+                (si_clet + s[J_CLASS2 + SETUP] + si_cloud) / n_intr);
             printf("  Global system response time ........ = %f\n", 
                 service / arrived);
 

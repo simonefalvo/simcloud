@@ -17,11 +17,12 @@
 #define M2CLET      0.27        /* class 2 cloudlet service rate    */
 #define M1CLOUD     0.25        /* class 1 cloud service rate       */
 #define M2CLOUD     0.22        /* class 2 cloud service rate       */
-#define SETUP       0.8         /* class 2 mean setup time          */
+#define MSETUP      1.25        /* class 2 setup service rate       */
 #define J_CLASS1    0           /* job class type 1                 */
 #define J_CLASS2    1           /* job class type 2                 */ 
 #define CLET        0           /* cloudlet index                   */
 #define CLOUD       2           /* cloud index                      */
+#define SETUP       3           /* setup index                      */
 #define SRV_IDLE    0           /* idle server index                */
 #define SRV_BUSY    1           /* busy server index                */
 #define E_ARRIVL    0           /* arrival event type               */
@@ -31,7 +32,7 @@
 #define EDF_PLCY    0           /* Earlest Deadline First preemption policy */
 #define LDF_PLCY    0           /* Latest Deadline First preemption policy  */
 
-#define OUTPUT  1
+#define OUTPUT  0
 #define DISPLAY 1
 #define AUDIT   0
 
@@ -48,8 +49,7 @@ struct job_t {
     unsigned long id;
     unsigned int class;
     unsigned int node;
-    double service[4];
-    double setup;
+    double service[5];
 };
 
 struct event {                  /* event            */
